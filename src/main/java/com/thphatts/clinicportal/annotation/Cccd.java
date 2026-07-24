@@ -2,6 +2,7 @@ package com.thphatts.clinicportal.annotation;
 
 
 import jakarta.validation.Constraint;
+import jakarta.validation.Payload;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -13,4 +14,8 @@ import java.lang.annotation.Target;
 @Constraint(validatedBy = CccdValidator.class)
 public @interface Cccd {
     public String message() default "Số căn cước công dân phải gồm 12 chữ số!!";
+    Class<?>[] groups() default { };
+
+	Class<? extends Payload>[] payload() default { };
+
 }

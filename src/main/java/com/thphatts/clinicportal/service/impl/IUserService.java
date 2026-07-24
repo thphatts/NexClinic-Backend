@@ -1,7 +1,7 @@
 package com.thphatts.clinicportal.service.impl;
 
-import com.thphatts.clinicportal.dto.response.UserResponse;
-import com.thphatts.clinicportal.dto.request.UserRequest;
+import com.thphatts.clinicportal.dto.record.UserResponse;
+import com.thphatts.clinicportal.dto.record.UserRequest;
 import com.thphatts.clinicportal.entity.User;
 import com.thphatts.clinicportal.mapper.UserMapper;
 import com.thphatts.clinicportal.repository.UserRepository;
@@ -31,10 +31,10 @@ public class IUserService implements UserService {
             throw new RuntimeException("User not exits!");
         }
         User userUpdate = user.get();
-        userUpdate.setName(rq.getName());
-        userUpdate.setEmail(rq.getEmail());
-        userUpdate.setPassword(rq.getPassword());
-        userUpdate.setUsername(rq.getUsername());
+        userUpdate.setName(rq.name());
+        userUpdate.setEmail(rq.email());
+        userUpdate.setPassword(rq.password());
+        userUpdate.setUsername(rq.username());
         userRepository.save(userUpdate);
     }
 

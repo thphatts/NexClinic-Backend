@@ -1,31 +1,30 @@
 package com.thphatts.clinicportal.controller;
 
-import com.thphatts.clinicportal.dto.response.UserResponse;
-import com.thphatts.clinicportal.dto.request.UserRequest;
+import com.thphatts.clinicportal.common.ApiResponse;
+import com.thphatts.clinicportal.common.BaseController;
+import com.thphatts.clinicportal.dto.record.UserResponse;
+import com.thphatts.clinicportal.dto.record.UserRequest;
 import com.thphatts.clinicportal.service.UserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+@RequiredArgsConstructor
 @RestController
 @RequestMapping(value = "/api/v1/users")
-public class UserController {
+public class UserController extends BaseController {
     private final UserService userService;
-
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
-
     @GetMapping
-    public ResponseEntity<List<UserResponse>> showListUsers(){
-        return new ResponseEntity<>(userService.index(), HttpStatus.OK);
+    public ApiResponse<List<UserResponse>> showListUsers(){
+        return createdSuccessResponse(userService.index());
     }
     @PostMapping
-    public ResponseEntity<String> createNewUser(@RequestBody UserRequest rq){
+    public ApiResponse<String> createNewUser(@Valid @RequestBody UserRequest rq){
         userService.create(rq);
-        return new ResponseEntity<>("Create a new user sucessfully", HttpStatus.CREATED);
+        return createdSuccessResponse("Create a new user sucessfully");
     }
     @PutMapping("/{id}")
     public ResponseEntity<String> updateUser(@PathVariable("id") String id,@RequestBody UserRequest rq){
