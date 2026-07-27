@@ -1,33 +1,30 @@
 package com.thphatts.clinicportal.dto.request;
 
-import org.hibernate.validator.constraints.UniqueElements;
-
-import com.thphatts.clinicportal.annotation.Cccd;
-
+import com.thphatts.clinicportal.entity.Role;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record UserRequest(
-        @NotEmpty(message = "field do not null ")
-        @NotNull(message = "this field do not null")
-        @NotBlank(message = "this field do not null")
+        @NotBlank(message = "Tên không được để trống")
         String name,
-        @Min(value=0,message = "value must to > 0")
-        @Max(value = 9, message = "value must to < 9")
+
         String address,
-        @Size(min = 9, max = 11, message = "number phone must rage from 9 to 11")
+
+        @Size(min = 9, max = 15, message = "Số điện thoại phải từ 9 đến 15 ký tự")
         String phone,
-        @Email
-        @UniqueElements
+
+        @NotBlank(message = "Email không được để trống")
+        @Email(message = "Email không đúng định dạng")
         String email,
+
+        @NotBlank(message = "Username không được để trống")
+        @Size(min = 3, max = 50, message = "Username phải từ 3 đến 50 ký tự")
         String username,
+
+        @NotBlank(message = "Mật khẩu không được để trống")
+        @Size(min = 6, message = "Mật khẩu phải từ 6 ký tự trở lên")
         String password,
-        @Cccd
-        String cccd
-) {
-}
+
+        Role role
+) {}
