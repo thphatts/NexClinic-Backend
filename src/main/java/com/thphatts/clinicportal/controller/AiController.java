@@ -5,7 +5,9 @@ import com.thphatts.clinicportal.dto.request.SymptomAnalysisRequest;
 import com.thphatts.clinicportal.dto.response.AiChatResponse;
 import com.thphatts.clinicportal.dto.response.MedicalRecordSummaryResponse;
 import com.thphatts.clinicportal.dto.response.SymptomAnalysisResponse;
+import com.thphatts.clinicportal.dto.response.AiAgentActionResult;
 import com.thphatts.clinicportal.service.AiService;
+import com.thphatts.clinicportal.service.ai.agent.AiAgentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -19,6 +21,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class AiController {
 
     private final AiService aiService;
+    private final AiAgentService aiAgentService;
 
     @PostMapping("/chat")
     public ResponseEntity<AiChatResponse> chat(@Valid @RequestBody AiChatRequest request) {
@@ -33,6 +36,12 @@ public class AiController {
             @RequestParam(required = false) String context
     ) {
         return aiService.streamChat(new AiChatRequest(message, sessionId, context));
+    }
+
+    @PostMapping("/agent/action")
+    public ResponseEntity<AiAgentActionResult> processAgentAction(@RequestParam String command) {
+        AiAgentActionResult result = aiAgentService.processUserAction(command);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/analyze-symptoms")

@@ -12,6 +12,7 @@ import com.thphatts.clinicportal.repository.MedicalRecordRepository;
 import com.thphatts.clinicportal.service.AiService;
 import com.thphatts.clinicportal.service.ai.LlmProvider;
 import com.thphatts.clinicportal.service.ai.LlmProviderFactory;
+import com.thphatts.clinicportal.service.ai.agent.AiAgentService;
 import com.thphatts.clinicportal.service.ai.embedding.EmbeddingProviderFactory;
 import com.thphatts.clinicportal.service.ai.embedding.EmbeddingService;
 import com.thphatts.clinicportal.service.ai.memory.AiConversationMemoryManager;
@@ -44,6 +45,7 @@ public class IAiService implements AiService {
     private final AiConversationMemoryManager memoryManager;
     private final ClinicKnowledgeVectorRepository knowledgeVectorRepository;
     private final EmbeddingProviderFactory embeddingProviderFactory;
+    private final AiAgentService aiAgentService;
 
     @Qualifier("aiAsyncExecutor")
     private final Executor aiAsyncExecutor;
@@ -57,6 +59,22 @@ public class IAiService implements AiService {
         // 1. Lưu câu hỏi bệnh nhân vào bộ nhớ hội thoại PostgreSQL
         memoryManager.addMessage(sessionId, "Bệnh nhân", request.message());
         String conversationHistory = memoryManager.getFormattedHistory(sessionId);
+
+        // 2. AI Agent Function Calling: Tự động phát hiện và thực thi Action Intent (Đặt lịch/Hủy lịch/Tìm bác sĩ)
+        if (aiAgentService.isActionIntent(request.message())) {
+            var actionResult = aiAgentService.processUserAction(request.message());
+            String actionReply = "[AI Agent] " + actionResult.message();
+
+            memoryManager.addMessage(sessionId, "Trợ lý AI Agent", actionReply);
+
+            return new AiChatResponse(
+                    actionReply,
+                    sessionId,
+                    List.of("Xem danh sách lịch hẹn", "Hủy lịch hẹn", "Tư vấn sức khỏe"),
+                    MEDICAL_DISCLAIMER,
+                    LocalDateTime.now()
+            );
+        }
 
         LlmProvider provider = llmProviderFactory.getProvider();
 
@@ -117,6 +135,22 @@ public class IAiService implements AiService {
             try {
                 // 1. Lưu tin nhắn bệnh nhân
                 memoryManager.addMessage(sessionId, "Bệnh nhân", request.message());
+
+                // 2. AI Agent Function Calling trong SSE Stream
+                if (aiAgentService.isActionIntent(request.message())) {
+                    var actionResult = aiAgentService.processUserAction(request.message());
+                    String actionReply = "🤖 [AI Agent Action] " + actionResult.message();
+
+                    for (String word : actionReply.split("(?<=\\s)")) {
+                        emitter.send(SseEmitter.event().name("message").data(word));
+                        Thread.sleep(20);
+                    }
+                    emitter.send(SseEmitter.event().name("session").data(sessionId));
+                    memoryManager.addMessage(sessionId, "Trợ lý AI Agent", actionReply);
+                    emitter.complete();
+                    return;
+                }
+
                 String history = memoryManager.getFormattedHistory(sessionId);
 
                 LlmProvider provider = llmProviderFactory.getProvider();

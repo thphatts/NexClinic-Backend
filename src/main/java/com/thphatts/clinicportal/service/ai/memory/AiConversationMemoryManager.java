@@ -31,7 +31,7 @@ public class AiConversationMemoryManager {
                 .build();
 
         chatMessageRepository.save(message);
-        log.debug("💾 Đã lưu tin nhắn AI vào PostgreSQL DB cho session [{}]", sessionId);
+        log.debug("Đã lưu tin nhắn AI vào PostgreSQL DB cho session [{}]", sessionId);
     }
 
     /**
