@@ -15,10 +15,11 @@ public interface PatientService {
 
     PatientResponse getPatientById(Long id);
 
+    PatientResponse getPatientByCitizenId(String citizenId);
+
     PagedResponse<PatientResponse> getAllPatients(String search, Pageable pageable);
 
     void deletePatient(Long id);
 
     List<PatientResponse> getPatientsWithNPlusOne();
 }
-

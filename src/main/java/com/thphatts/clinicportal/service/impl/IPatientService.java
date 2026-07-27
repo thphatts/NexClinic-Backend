@@ -65,6 +65,14 @@ public class IPatientService implements PatientService {
 
     @Override
     @Transactional(readOnly = true)
+    public PatientResponse getPatientByCitizenId(String citizenId) {
+        Patient patient = patientRepository.findByCitizenId(citizenId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bệnh nhân với số CCCD/CMND: " + citizenId));
+        return patientMapper.toResponse(patient);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public PagedResponse<PatientResponse> getAllPatients(String search, Pageable pageable) {
         Page<Patient> patientPage;
         if (search != null && !search.isBlank()) {
@@ -105,4 +113,3 @@ public class IPatientService implements PatientService {
                 .toList();
     }
 }
-

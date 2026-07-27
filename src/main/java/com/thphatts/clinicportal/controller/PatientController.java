@@ -47,6 +47,11 @@ public class PatientController extends BaseController {
         return ApiResponse.success(patientService.getPatientById(id));
     }
 
+    @GetMapping("/citizen-id/{citizenId}")
+    public ApiResponse<PatientResponse> getPatientByCitizenId(@PathVariable("citizenId") String citizenId) {
+        return ApiResponse.success(patientService.getPatientByCitizenId(citizenId));
+    }
+
     @PutMapping("/{id}")
     public ApiResponse<PatientResponse> updatePatient(
             @PathVariable("id") Long id,

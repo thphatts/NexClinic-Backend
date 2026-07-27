@@ -13,8 +13,8 @@ public record PatientResponse(
         LocalDate dob,
         String gender,
         String address,
+        String userId,
         LocalDateTime createdAt,
         List<String> diagnoses
 ) {
 }
-

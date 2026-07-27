@@ -1,10 +1,7 @@
 package com.thphatts.clinicportal.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -43,6 +40,9 @@ public class Patient {
     @Column(name = "address", length = 255)
     private String address;
 
+    @Column(name = "user_id")
+    private String userId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -64,4 +64,3 @@ public class Patient {
         this.updatedAt = LocalDateTime.now();
     }
 }
-

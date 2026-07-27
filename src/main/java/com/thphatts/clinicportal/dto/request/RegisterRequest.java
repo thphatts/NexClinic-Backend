@@ -1,6 +1,6 @@
 package com.thphatts.clinicportal.dto.request;
 
-import com.thphatts.clinicportal.entity.Role;
+import com.thphatts.clinicportal.annotation.Cccd;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -31,4 +31,7 @@ public class RegisterRequest {
 
     private String phone;
     private String address;
+
+    @Cccd(message = "CCCD không hợp lệ (phải đủ 12 chữ số)")
+    private String citizenId;
 }

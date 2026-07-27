@@ -1,5 +1,6 @@
 package com.thphatts.clinicportal.dto.request;
 
+import com.thphatts.clinicportal.annotation.Cccd;
 import com.thphatts.clinicportal.entity.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -25,6 +26,9 @@ public record UserRequest(
         @NotBlank(message = "Mật khẩu không được để trống")
         @Size(min = 6, message = "Mật khẩu phải từ 6 ký tự trở lên")
         String password,
+
+        @Cccd(message = "Số CCCD không hợp lệ")
+        String citizenId,
 
         Role role
 ) {}
