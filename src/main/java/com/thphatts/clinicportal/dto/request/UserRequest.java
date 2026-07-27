@@ -1,4 +1,4 @@
-package com.thphatts.clinicportal.dto.record;
+package com.thphatts.clinicportal.dto.request;
 
 import org.hibernate.validator.constraints.UniqueElements;
 

@@ -20,14 +20,14 @@ public class ProductSpecification {
             }
 
             if(StringUtils.hasText(category)){
-                predicateList.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("name")),"%"+category.toLowerCase() + "%"));
+                predicateList.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("category")),"%"+category.toLowerCase() + "%"));
             }
 
 
             if(price != null) {
                 predicateList.add(criteriaBuilder.lessThanOrEqualTo(root.get("price"),price));
             }
-            return criteriaBuilder.and(predicateList.toArray(predicateList.toArray(new Predicate[0])));
+            return criteriaBuilder.and(predicateList.toArray(new Predicate[0]));
         });
     }
 }

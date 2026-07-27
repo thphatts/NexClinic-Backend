@@ -9,7 +9,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "Tl_user")
+@Table(name = "users")
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -23,4 +23,8 @@ public class User {
     private String email;
     private String username;
     private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Role role = Role.ROLE_PATIENT;
 }

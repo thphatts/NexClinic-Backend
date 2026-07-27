@@ -3,14 +3,13 @@ package com.thphatts.clinicportal.controller;
 
 import com.thphatts.clinicportal.common.ApiResponse;
 import com.thphatts.clinicportal.common.BaseController;
-import com.thphatts.clinicportal.dto.record.ProductResponse;
+import com.thphatts.clinicportal.dto.response.PagedResponse;
+import com.thphatts.clinicportal.dto.response.ProductResponse;
 import com.thphatts.clinicportal.service.ProductService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,7 +19,7 @@ public class ProductController extends BaseController {
     private final ProductService productService;
 
     @GetMapping
-        public ApiResponse<Page<ProductResponse>> index(
+        public ApiResponse<PagedResponse<ProductResponse>> index(
             @RequestParam(value = "page_no", defaultValue = "0") int page,
             @RequestParam(value = "page_size", defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,

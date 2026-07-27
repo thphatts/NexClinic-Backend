@@ -1,7 +1,7 @@
 package com.thphatts.clinicportal.service.impl;
 
-import com.thphatts.clinicportal.dto.record.UserResponse;
-import com.thphatts.clinicportal.dto.record.UserRequest;
+import com.thphatts.clinicportal.dto.request.UserResponse;
+import com.thphatts.clinicportal.dto.request.UserRequest;
 import com.thphatts.clinicportal.entity.User;
 import com.thphatts.clinicportal.mapper.UserMapper;
 import com.thphatts.clinicportal.repository.UserRepository;
