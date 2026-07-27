@@ -7,6 +7,8 @@ import com.thphatts.clinicportal.mapper.UserMapper;
 import com.thphatts.clinicportal.repository.UserRepository;
 import com.thphatts.clinicportal.service.UserService;
 import lombok.RequiredArgsConstructor;
+import com.thphatts.clinicportal.entity.Role;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,10 +20,18 @@ public class IUserService implements UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public void create(UserRequest rq) {
-        userRepository.save(mapToEntity(rq));
+        User user = mapToEntity(rq);
+        user.setPassword(passwordEncoder.encode(rq.password()));
+        if (rq.role() != null) {
+            user.setRole(rq.role());
+        } else {
+            user.setRole(Role.ROLE_PATIENT);
+        }
+        userRepository.save(user);
     }
 
     @Override

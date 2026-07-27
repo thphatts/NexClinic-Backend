@@ -36,7 +36,7 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Email đã được đăng ký: " + request.getEmail());
         }
 
-        Role role = request.getRole() != null ? request.getRole() : Role.ROLE_PATIENT;
+        Role role = Role.ROLE_PATIENT;
 
         User user = User.builder()
                 .name(request.getName())

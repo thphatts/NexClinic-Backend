@@ -13,7 +13,6 @@ public interface UserMapper {
     UserResponse toResponse(User user);
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "role", ignore = true)
     @Mapping(source = "phone", target = "phoneNumber")
     User toEntity(UserRequest request);
 }
