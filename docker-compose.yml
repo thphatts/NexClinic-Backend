@@ -1,7 +1,7 @@
 services:
   # Cấu hình cho PostgreSQL
   postgres_db:
-    image: postgres:14.1-alpine
+    image: pgvector/pgvector:pg14
     container_name: postgres_container
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-admin}

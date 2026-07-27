@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 @Component
 public class TfIdfFallbackEmbeddingService implements EmbeddingService {
 
-    private static final int VECTOR_DIM = 512;
+    private static final int VECTOR_DIM = 768;
 
     // Từ khóa y tế đặc biệt quan trọng - tăng trọng số
     private static final Set<String> MEDICAL_KEYWORDS = Set.of(
