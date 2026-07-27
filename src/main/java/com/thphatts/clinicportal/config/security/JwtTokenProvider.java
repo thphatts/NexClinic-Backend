@@ -17,7 +17,7 @@ import java.util.Map;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${app.jwt.secret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
+    @Value("${app.jwt.secret}")
     private String jwtSecret;
 
     @Value("${app.jwt.expiration-ms:86400000}") // 24 Hours

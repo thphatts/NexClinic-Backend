@@ -2,8 +2,8 @@ package com.thphatts.clinicportal.controller;
 
 import com.thphatts.clinicportal.common.ApiResponse;
 import com.thphatts.clinicportal.common.BaseController;
-import com.thphatts.clinicportal.dto.request.UserResponse;
 import com.thphatts.clinicportal.dto.request.UserRequest;
+import com.thphatts.clinicportal.dto.response.UserResponse;
 import com.thphatts.clinicportal.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

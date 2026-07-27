@@ -1,7 +1,7 @@
 package com.thphatts.clinicportal.mapper;
 
-import com.thphatts.clinicportal.dto.request.UserResponse;
 import com.thphatts.clinicportal.dto.request.UserRequest;
+import com.thphatts.clinicportal.dto.response.UserResponse;
 import com.thphatts.clinicportal.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
