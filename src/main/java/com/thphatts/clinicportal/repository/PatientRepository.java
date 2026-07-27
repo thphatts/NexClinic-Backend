@@ -13,6 +13,8 @@ import java.util.Optional;
 
 public interface PatientRepository extends JpaRepository<Patient, Long> {
 
+    Optional<Patient> findByCitizenId(String citizenId);
+
     boolean existsByCitizenId(String citizenId);
 
     boolean existsByPhone(String phone);
@@ -34,4 +36,3 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
     @Query(value = "SELECT p FROM Patient p")
     List<Patient> findAllWithCheckUpOptimized();
 }
-

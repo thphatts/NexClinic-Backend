@@ -4,9 +4,10 @@ import com.thphatts.clinicportal.config.security.JwtTokenProvider;
 import com.thphatts.clinicportal.dto.request.LoginRequest;
 import com.thphatts.clinicportal.dto.request.RegisterRequest;
 import com.thphatts.clinicportal.dto.response.AuthResponse;
+import com.thphatts.clinicportal.entity.Patient;
 import com.thphatts.clinicportal.entity.Role;
 import com.thphatts.clinicportal.entity.User;
-import com.thphatts.clinicportal.exception.BaseException;
+import com.thphatts.clinicportal.repository.PatientRepository;
 import com.thphatts.clinicportal.repository.UserRepository;
 import com.thphatts.clinicportal.service.AuthService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final PatientRepository patientRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
@@ -36,6 +38,12 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Email đã được đăng ký: " + request.getEmail());
         }
 
+        if (request.getCitizenId() != null && !request.getCitizenId().isBlank()) {
+            if (userRepository.existsByCitizenId(request.getCitizenId())) {
+                throw new RuntimeException("Số CCCD đã được đăng ký tài khoản trong hệ thống: " + request.getCitizenId());
+            }
+        }
+
         Role role = Role.ROLE_PATIENT;
 
         User user = User.builder()
@@ -45,10 +53,33 @@ public class AuthServiceImpl implements AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phoneNumber(request.getPhone())
                 .address(request.getAddress())
+                .citizenId(request.getCitizenId())
                 .role(role)
                 .build();
 
         User savedUser = userRepository.save(user);
+
+        // Tự động liên kết hoặc khởi tạo Hồ sơ Bệnh nhân (Patient Record)
+        if (request.getCitizenId() != null && !request.getCitizenId().isBlank()) {
+            patientRepository.findByCitizenId(request.getCitizenId()).ifPresentOrElse(
+                    existingPatient -> {
+                        existingPatient.setUserId(savedUser.getId());
+                        patientRepository.save(existingPatient);
+                    },
+                    () -> {
+                        Patient newPatient = Patient.builder()
+                                .fullName(savedUser.getName())
+                                .citizenId(savedUser.getCitizenId())
+                                .phone(savedUser.getPhoneNumber())
+                                .email(savedUser.getEmail())
+                                .address(savedUser.getAddress())
+                                .userId(savedUser.getId())
+                                .build();
+                        patientRepository.save(newPatient);
+                    }
+            );
+        }
+
         String token = tokenProvider.generateToken(savedUser);
 
         return AuthResponse.builder()
