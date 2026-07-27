@@ -1,7 +1,7 @@
 package com.thphatts.clinicportal.mapper;
 
-import com.thphatts.clinicportal.dto.record.UserResponse;
-import com.thphatts.clinicportal.dto.record.UserRequest;
+import com.thphatts.clinicportal.dto.request.UserResponse;
+import com.thphatts.clinicportal.dto.request.UserRequest;
 import com.thphatts.clinicportal.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -13,6 +13,7 @@ public interface UserMapper {
     UserResponse toResponse(User user);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "role", ignore = true)
     @Mapping(source = "phone", target = "phoneNumber")
     User toEntity(UserRequest request);
 }

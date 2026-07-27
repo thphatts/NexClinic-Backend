@@ -1,4 +1,4 @@
-package com.thphatts.clinicportal.dto.record;
+package com.thphatts.clinicportal.dto.request;
 
 public record UserResponse(
         String id,

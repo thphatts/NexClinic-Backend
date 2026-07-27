@@ -1,4 +1,4 @@
-package com.thphatts.clinicportal.dto.record;
+package com.thphatts.clinicportal.dto.response;
 
 import java.math.BigDecimal;
 

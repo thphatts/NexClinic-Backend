@@ -1,7 +1,7 @@
 package com.thphatts.clinicportal.service;
 
-import com.thphatts.clinicportal.dto.record.UserResponse;
-import com.thphatts.clinicportal.dto.record.UserRequest;
+import com.thphatts.clinicportal.dto.request.UserResponse;
+import com.thphatts.clinicportal.dto.request.UserRequest;
 
 import java.util.List;
 
