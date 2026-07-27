@@ -28,17 +28,17 @@ public class EmbeddingProviderFactory {
         String target = providerSetting.trim().toLowerCase();
 
         if ("tfidf".equals(target) || "offline".equals(target)) {
-            log.info("🔧 [Embedding] Chế độ offline TF-IDF được chọn thủ công.");
+            log.info("[Embedding] Chế độ offline TF-IDF được chọn thủ công.");
             return tfIdfFallbackService;
         }
 
         // Auto mode: ưu tiên Gemini nếu có API Key
         if (geminiEmbeddingService.isAvailable()) {
-            log.info("🚀 [Embedding] Kích hoạt Gemini text-embedding-004 (768 chiều).");
+            log.info("[Embedding] Kích hoạt Gemini text-embedding-004 (768 chiều).");
             return geminiEmbeddingService;
         }
 
-        log.warn("⚠️ [Embedding] Gemini API Key không hợp lệ. Chuyển sang TF-IDF Offline Fallback.");
+        log.warn("[Embedding] Gemini API Key không hợp lệ. Chuyển sang TF-IDF Offline Fallback.");
         return tfIdfFallbackService;
     }
 }
