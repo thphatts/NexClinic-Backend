@@ -18,14 +18,18 @@ import com.thphatts.clinicportal.service.ai.LlmProviderFactory;
 import com.thphatts.clinicportal.service.ai.memory.AiConversationMemoryManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -43,13 +47,16 @@ public class IAiService implements AiService {
     private final MedicalRecordRepository medicalRecordRepository;
     private final AiConversationMemoryManager memoryManager;
 
+    @Qualifier("aiAsyncExecutor")
+    private final Executor aiAsyncExecutor;
+
     @Override
     public AiChatResponse chat(AiChatRequest request) {
         String sessionId = request.sessionId() != null && !request.sessionId().isBlank()
                 ? request.sessionId()
                 : UUID.randomUUID().toString();
 
-        // 1. Lưu câu hỏi bệnh nhân vào bộ nhớ hội thoại
+        // 1. Lưu câu hỏi bệnh nhân vào bộ nhớ hội thoại PostgreSQL
         memoryManager.addMessage(sessionId, "Bệnh nhân", request.message());
         String conversationHistory = memoryManager.getFormattedHistory(sessionId);
 
@@ -81,7 +88,7 @@ public class IAiService implements AiService {
             reply = "Tôi đã ghi nhận ý kiến của bạn. Bạn có thể sử dụng các gợi ý bên dưới để tra cứu Bác sĩ hoặc Đặt lịch hẹn khám ngay.";
         }
 
-        // 3. Lưu câu trả lời của AI vào bộ nhớ hội thoại
+        // 3. Lưu câu trả lời của AI vào bộ nhớ hội thoại PostgreSQL
         memoryManager.addMessage(sessionId, "Trợ lý AI", reply);
 
         List<String> suggestedActions = List.of(
@@ -97,6 +104,73 @@ public class IAiService implements AiService {
                 MEDICAL_DISCLAIMER,
                 LocalDateTime.now()
         );
+    }
+
+    @Override
+    public SseEmitter streamChat(AiChatRequest request) {
+        String sessionId = request.sessionId() != null && !request.sessionId().isBlank()
+                ? request.sessionId()
+                : UUID.randomUUID().toString();
+
+        SseEmitter emitter = new SseEmitter(120000L); // Timeout 2 phút
+
+        // Thực thi bất đồng bộ trên aiAsyncExecutor ThreadPool
+        aiAsyncExecutor.execute(() -> {
+            try {
+                // 1. Lưu tin nhắn bệnh nhân
+                memoryManager.addMessage(sessionId, "Bệnh nhân", request.message());
+                String history = memoryManager.getFormattedHistory(sessionId);
+
+                LlmProvider provider = llmProviderFactory.getProvider();
+                String ragContext = buildClinicRagContext();
+
+                String ragPrompt = String.format("""
+                        [SYSTEM INSTRUCTION]
+                        Bạn là Bác sĩ Trợ lý AI Y tế của Phòng khám AI-Powered Clinic Portal.
+                        Hãy tư vấn cho bệnh nhân bằng tiếng Việt thân thiện, ân cần và tự nhiên.
+                        
+                        [DỮ LIỆU THỰC TẾ PHÒNG KHÁM]
+                        %s
+                        
+                        [LỊCH SỬ HỘI THOẠI GẦN ĐÂY]
+                        %s
+                        
+                        [CÂU HỎI BỆNH NHÂN]
+                        "%s"
+                        
+                        Hãy phân tích câu hỏi trên và đưa ra câu trả lời ngắn gọn, chính xác theo dữ liệu phòng khám ở trên.
+                        """, ragContext, history, request.message());
+
+                String fullReply = provider.generateText(ragPrompt);
+                if (fullReply == null || fullReply.isBlank()) {
+                    fullReply = "Tôi đã ghi nhận ý kiến của bạn. Bạn có thể tra cứu lịch hẹn hoặc đặt khám Bác sĩ ngay.";
+                }
+
+                // 2. Stream từng token/từ về Frontend
+                String[] words = fullReply.split("(?<=\\s)");
+                for (String word : words) {
+                    emitter.send(SseEmitter.event()
+                            .name("message")
+                            .data(word));
+                    Thread.sleep(30); // Giả lập streaming mượt mà 30ms/token
+                }
+
+                // Send session ID event
+                emitter.send(SseEmitter.event()
+                        .name("session")
+                        .data(sessionId));
+
+                // 3. Lưu toàn bộ câu trả lời AI vào DB
+                memoryManager.addMessage(sessionId, "Trợ lý AI", fullReply);
+
+                emitter.complete();
+            } catch (Exception e) {
+                log.error("Lỗi khi streaming AI response: ", e);
+                emitter.completeWithError(e);
+            }
+        });
+
+        return emitter;
     }
 
     @Override

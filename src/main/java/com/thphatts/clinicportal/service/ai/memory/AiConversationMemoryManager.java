@@ -1,53 +1,66 @@
 package com.thphatts.clinicportal.service.ai.memory;
 
+import com.thphatts.clinicportal.entity.AiChatMessage;
+import com.thphatts.clinicportal.repository.AiChatMessageRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class AiConversationMemoryManager {
 
-    private static final int MAX_HISTORY_SIZE = 6; // Lưu tối đa 6 lượt câu thoại gần nhất
-    private final Map<String, Queue<String>> conversationMap = new ConcurrentHashMap<>();
+    private final AiChatMessageRepository chatMessageRepository;
 
     /**
-     * Thêm một lượt hội thoại vào bộ nhớ theo sessionId
+     * Thêm một lượt hội thoại vào bộ nhớ PostgreSQL bền vững
      */
+    @Transactional
     public void addMessage(String sessionId, String role, String content) {
         if (sessionId == null || sessionId.isBlank()) return;
 
-        Queue<String> history = conversationMap.computeIfAbsent(sessionId, k -> new LinkedList<>());
-        synchronized (history) {
-            if (history.size() >= MAX_HISTORY_SIZE) {
-                history.poll(); // Xóa tin nhắn cũ nhất khi vượt ngưỡng MAX
-            }
-            history.add(role + ": " + content);
-        }
+        AiChatMessage message = AiChatMessage.builder()
+                .sessionId(sessionId)
+                .role(role)
+                .content(content)
+                .build();
+
+        chatMessageRepository.save(message);
+        log.debug("💾 Đã lưu tin nhắn AI vào PostgreSQL DB cho session [{}]", sessionId);
     }
 
     /**
-     * Lấy lịch sử hội thoại dưới dạng chuỗi văn bản cho Prompt
+     * Lấy lịch sử hội thoại dưới dạng chuỗi văn bản từ PostgreSQL DB cho Prompt
      */
+    @Transactional(readOnly = true)
     public String getFormattedHistory(String sessionId) {
-        if (sessionId == null || !conversationMap.containsKey(sessionId)) {
+        if (sessionId == null || sessionId.isBlank()) {
             return "Chưa có lịch sử hội thoại trước đó.";
         }
 
-        Queue<String> history = conversationMap.get(sessionId);
-        synchronized (history) {
-            return String.join("\n", history);
+        List<AiChatMessage> history = chatMessageRepository.findTop6BySessionIdOrderByCreatedAtAsc(sessionId);
+        if (history.isEmpty()) {
+            return "Chưa có lịch sử hội thoại trước đó.";
         }
+
+        return history.stream()
+                .map(m -> m.getRole() + ": " + m.getContent())
+                .collect(Collectors.joining("\n"));
     }
 
     /**
-     * Dọn dẹp bộ nhớ theo sessionId khi cần
+     * Dọn dẹp bộ nhớ hội thoại theo sessionId khi cần
      */
+    @Transactional
     public void clearHistory(String sessionId) {
-        if (sessionId != null) {
-            conversationMap.remove(sessionId);
+        if (sessionId != null && !sessionId.isBlank()) {
+            chatMessageRepository.deleteBySessionId(sessionId);
+            log.info("🗑️ Đã dọn dẹp toàn bộ lịch sử chat của session [{}] trong DB", sessionId);
         }
     }
 }
