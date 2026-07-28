@@ -64,6 +64,8 @@ public class AuthServiceImpl implements AuthService {
             patientRepository.findByCitizenId(request.getCitizenId()).ifPresentOrElse(
                     existingPatient -> {
                         existingPatient.setUserId(savedUser.getId());
+                        if (request.getDob() != null) existingPatient.setDob(request.getDob());
+                        if (request.getGender() != null) existingPatient.setGender(request.getGender());
                         patientRepository.save(existingPatient);
                     },
                     () -> {
@@ -73,6 +75,8 @@ public class AuthServiceImpl implements AuthService {
                                 .phone(savedUser.getPhoneNumber())
                                 .email(savedUser.getEmail())
                                 .address(savedUser.getAddress())
+                                .dob(request.getDob())
+                                .gender(request.getGender())
                                 .userId(savedUser.getId())
                                 .build();
                         patientRepository.save(newPatient);
