@@ -27,6 +27,26 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     restart: always
+  # Cấu hình cho Spring Boot Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clinic_portal_app
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-my_postgres_db}
+      - DB_USERNAME=${POSTGRES_USER:-admin}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-password123}
+      - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS:-86400000}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    depends_on:
+      - postgres_db
+    restart: always
 
 volumes:
   postgres_data:
