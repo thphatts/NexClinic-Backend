@@ -18,13 +18,19 @@ import java.util.Map;
 @Component
 public class GeminiEmbeddingService implements EmbeddingService {
 
-    private static final String GEMINI_EMBED_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=%s";
+    private static final String GEMINI_EMBED_URL_TEMPLATE =
+            "https://generativelanguage.googleapis.com/v1beta/%s:embedContent?key=%s";
+
+    private static final List<String> MODEL_CANDIDATES = List.of(
+            "models/text-embedding-004",
+            "models/embedding-001"
+    );
 
     @Value("${app.ai.google.api-key:}")
     private String apiKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private volatile String workingModel = null;
 
     @Override
     public float[] embed(String text) {
@@ -32,43 +38,53 @@ public class GeminiEmbeddingService implements EmbeddingService {
             throw new IllegalStateException("Gemini Embedding API Key chưa được cấu hình!");
         }
 
-        try {
-            String url = String.format(GEMINI_EMBED_URL, apiKey);
+        List<String> modelsToTry = (workingModel != null)
+                ? List.of(workingModel)
+                : MODEL_CANDIDATES;
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
+        for (String model : modelsToTry) {
+            try {
+                String url = String.format(GEMINI_EMBED_URL_TEMPLATE, model, apiKey);
 
-            Map<String, Object> requestBody = Map.of(
-                    "model", "models/text-embedding-004",
-                    "content", Map.of(
-                            "parts", List.of(
-                                    Map.of("text", text)
-                            )
-                    )
-            );
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+                Map<String, Object> requestBody = Map.of(
+                        "model", model,
+                        "content", Map.of(
+                                "parts", List.of(
+                                        Map.of("text", text)
+                                )
+                        )
+                );
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map embedding = (Map) response.getBody().get("embedding");
-                if (embedding != null) {
-                    List<Double> values = (List<Double>) embedding.get("values");
-                    if (values != null && !values.isEmpty()) {
-                        float[] result = new float[values.size()];
-                        for (int i = 0; i < values.size(); i++) {
-                            result[i] = values.get(i).floatValue();
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+                ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    Map embedding = (Map) response.getBody().get("embedding");
+                    if (embedding != null) {
+                        List<Double> values = (List<Double>) embedding.get("values");
+                        if (values != null && !values.isEmpty()) {
+                            float[] result = new float[values.size()];
+                            for (int i = 0; i < values.size(); i++) {
+                                result[i] = values.get(i).floatValue();
+                            }
+                            if (this.workingModel == null) {
+                                this.workingModel = model;
+                                log.info("✅ Đã xác nhận Gemini Embedding Model hoạt động: {}", model);
+                            }
+                            log.debug("✅ Gemini Embedding thành công ({}) cho text dài {} ký tự", model, text.length());
+                            return result;
                         }
-                        log.debug("✅ Gemini Embedding thành công: {} chiều cho text dài {} ký tự", result.length, text.length());
-                        return result;
                     }
                 }
+            } catch (Exception e) {
+                log.warn("⚠️ Model Gemini {} không khả dụng: {}", model, e.getMessage());
             }
-        } catch (Exception e) {
-            log.error("❌ Lỗi khi gọi Gemini Embedding API: {}", e.getMessage());
         }
 
-        throw new RuntimeException("Không thể tạo Embedding vector từ Gemini API.");
+        throw new RuntimeException("Tất cả Gemini Embedding models đều không khả dụng cho API Key hiện tại.");
     }
 
     @Override
