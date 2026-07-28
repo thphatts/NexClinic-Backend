@@ -1,0 +1,26 @@
+# Build artifacts & dependencies
+target/
+*.jar
+*.war
+
+# IDE & Editor settings
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Version control
+.git/
+.gitignore
+
+# Environment & OS files
+.env
+.DS_Store
+*.log
+
+# Documentation & temporary plans
+HELP.md
+README.md
+implementation_plan.md
+walkthrough.md
