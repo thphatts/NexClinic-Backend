@@ -37,6 +37,7 @@ public class KnowledgeIndexingService {
     private final DoctorRepository doctorRepository;
     private final ProductRepository productRepository;
     private final EmbeddingProviderFactory embeddingProviderFactory;
+    private final com.thphatts.clinicportal.service.ai.embedding.TfIdfFallbackEmbeddingService tfIdfFallbackService;
 
     /**
      * Chạy khi khởi động app: index các tri thức chưa được vector hóa.
@@ -81,57 +82,45 @@ public class KnowledgeIndexingService {
         List<Doctor> doctors = doctorRepository.findAll();
         for (Doctor doctor : doctors) {
             String content = buildDoctorContent(doctor);
-            try {
-                float[] vector = embeddingService.embed(content);
-                toSave.add(ClinicKnowledgeVector.builder()
-                        .category("DOCTOR")
-                        .title("Bác sĩ: " + doctor.getFullName())
-                        .content(content)
-                        .embeddingVector(vector)
-                        .sourceEntityType("DOCTOR")
-                        .sourceEntityId(doctor.getId())
-                        .build());
-            } catch (Exception e) {
-                log.warn("Không thể embed Doctor ID={}: {}", doctor.getId(), e.getMessage());
-            }
+            float[] vector = safeEmbed(embeddingService, content);
+            toSave.add(ClinicKnowledgeVector.builder()
+                    .category("DOCTOR")
+                    .title("Bác sĩ: " + doctor.getFullName())
+                    .content(content)
+                    .embeddingVector(vector)
+                    .sourceEntityType("DOCTOR")
+                    .sourceEntityId(doctor.getId())
+                    .build());
         }
 
         // 2. Index tất cả Dược phẩm
         List<Product> products = productRepository.findAll();
         for (Product product : products) {
             String content = buildProductContent(product);
-            try {
-                float[] vector = embeddingService.embed(content);
-                toSave.add(ClinicKnowledgeVector.builder()
-                        .category("PRODUCT")
-                        .title("Dược phẩm: " + product.getName())
-                        .content(content)
-                        .embeddingVector(vector)
-                        .sourceEntityType("PRODUCT")
-                        .sourceEntityId(product.getId())
-                        .build());
-            } catch (Exception e) {
-                log.warn("Không thể embed Product ID={}: {}", product.getId(), e.getMessage());
-            }
+            float[] vector = safeEmbed(embeddingService, content);
+            toSave.add(ClinicKnowledgeVector.builder()
+                    .category("PRODUCT")
+                    .title("Dược phẩm: " + product.getName())
+                    .content(content)
+                    .embeddingVector(vector)
+                    .sourceEntityType("PRODUCT")
+                    .sourceEntityId(product.getId())
+                    .build());
         }
 
         // 3. Index thông tin tĩnh phòng khám
         String clinicContent = "Phòng khám AI-Powered Clinic Portal làm việc từ 07:30 - 20:00 hàng ngày, " +
                 "kể cả Thứ 7 và Chủ Nhật. Địa chỉ: TP. Hồ Chí Minh. Hotline: 1900-1234. " +
                 "Đặt lịch hẹn online, thanh toán linh hoạt, bãi giữ xe miễn phí.";
-        try {
-            float[] clinicVector = embeddingService.embed(clinicContent);
-            toSave.add(ClinicKnowledgeVector.builder()
-                    .category("CLINIC_INFO")
-                    .title("Thông tin phòng khám")
-                    .content(clinicContent)
-                    .embeddingVector(clinicVector)
-                    .sourceEntityType("CLINIC")
-                    .sourceEntityId(0L)
-                    .build());
-        } catch (Exception e) {
-            log.warn("Không thể embed thông tin phòng khám: {}", e.getMessage());
-        }
+        float[] clinicVector = safeEmbed(embeddingService, clinicContent);
+        toSave.add(ClinicKnowledgeVector.builder()
+                .category("CLINIC_INFO")
+                .title("Thông tin phòng khám")
+                .content(clinicContent)
+                .embeddingVector(clinicVector)
+                .sourceEntityType("CLINIC")
+                .sourceEntityId(0L)
+                .build());
 
         if (!toSave.isEmpty()) {
             // Xóa entries cũ của từng entity type trước khi insert mới
@@ -204,5 +193,15 @@ public class KnowledgeIndexingService {
             sb.append(". Trạng thái: ").append(product.getStatus());
         }
         return sb.toString();
+    }
+
+    private float[] safeEmbed(EmbeddingService primaryService, String content) {
+        try {
+            return primaryService.embed(content);
+        } catch (Exception e) {
+            log.warn("⚠️ Embedding chính ({}) thất bại, tự động chuyển sang TF-IDF Fallback: {}", 
+                    primaryService.getProviderName(), e.getMessage());
+            return tfIdfFallbackService.embed(content);
+        }
     }
 }
