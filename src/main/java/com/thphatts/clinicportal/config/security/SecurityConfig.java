@@ -41,8 +41,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)
+                .csrf(AbstractHttpConfigurer::disable) // tắt csrf vì dùng jwt qua header (stateless) không cần lưu cookie/session để xác thực
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // STATELESS = sever không tạo và lưu session cho user. mỗi req phải chứng minh danh tính qua token và sever không nhớ req trước đó
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -73,10 +74,18 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        
+        // CHÚ THÍCH VỀ COOKIE & CORS:
+        // 1. Spring MVC tự động đọc Cookie thông qua annotation @CookieValue độc lập với Security filter chain.
+        // 2. Tuy nhiên, khi gửi Cookie/Credentials từ Frontend (Cross-Origin), trình duyệt yêu cầu:
+        //    - setAllowCredentials(true): Cho phép gửi/nhận cookie và header xác thực.
+        //    - setAllowedOriginPatterns: Phải chỉ định rõ domain của Frontend (ví dụ: http://localhost:3000, http://localhost:5173).
+        //    - TRÌNH DUYỆT SẼ TỪ CHỐI GỬI COOKIE NẾU ORIGIN LÀ WILDCARD "*" KHI KẾT HỢP VỚI ALLOW CREDENTIALS!
+        configuration.setAllowCredentials(true);
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setExposedHeaders(List.of("Authorization", "Set-Cookie"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

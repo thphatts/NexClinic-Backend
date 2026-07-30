@@ -5,6 +5,7 @@ import com.thphatts.clinicportal.dto.request.PrescriptionItemRequest;
 import com.thphatts.clinicportal.dto.response.MedicalRecordResponse;
 import com.thphatts.clinicportal.dto.response.PagedResponse;
 import com.thphatts.clinicportal.entity.*;
+import com.thphatts.clinicportal.entity.enums.AppointmentStatus;
 import com.thphatts.clinicportal.mapper.MedicalRecordMapper;
 import com.thphatts.clinicportal.repository.*;
 import com.thphatts.clinicportal.service.MedicalRecordService;

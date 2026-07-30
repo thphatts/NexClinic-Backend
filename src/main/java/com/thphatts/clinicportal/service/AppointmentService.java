@@ -3,7 +3,7 @@ package com.thphatts.clinicportal.service;
 import com.thphatts.clinicportal.dto.request.AppointmentRequest;
 import com.thphatts.clinicportal.dto.response.AppointmentResponse;
 import com.thphatts.clinicportal.dto.response.PagedResponse;
-import com.thphatts.clinicportal.entity.AppointmentStatus;
+import com.thphatts.clinicportal.entity.enums.AppointmentStatus;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;

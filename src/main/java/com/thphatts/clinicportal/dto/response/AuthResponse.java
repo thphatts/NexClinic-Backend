@@ -1,6 +1,6 @@
 package com.thphatts.clinicportal.dto.response;
 
-import com.thphatts.clinicportal.entity.Role;
+import com.thphatts.clinicportal.entity.enums.Role;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

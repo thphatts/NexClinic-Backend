@@ -4,12 +4,15 @@ import com.thphatts.clinicportal.config.security.JwtTokenProvider;
 import com.thphatts.clinicportal.dto.request.LoginRequest;
 import com.thphatts.clinicportal.dto.request.RegisterRequest;
 import com.thphatts.clinicportal.dto.response.AuthResponse;
+import com.thphatts.clinicportal.dto.response.AuthResult;
 import com.thphatts.clinicportal.entity.Patient;
-import com.thphatts.clinicportal.entity.Role;
+import com.thphatts.clinicportal.entity.enums.Role;
 import com.thphatts.clinicportal.entity.User;
 import com.thphatts.clinicportal.repository.PatientRepository;
 import com.thphatts.clinicportal.repository.UserRepository;
 import com.thphatts.clinicportal.service.AuthService;
+import com.thphatts.clinicportal.service.IRefreshTokenService;
+import com.thphatts.clinicportal.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -26,10 +29,11 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
+    private final RefreshTokenService refreshTokenService;
 
     @Override
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public AuthResult register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Username đã tồn tại trong hệ thống: " + request.getUsername());
         }
@@ -85,8 +89,8 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String token = tokenProvider.generateToken(savedUser);
-
-        return AuthResponse.builder()
+        String rawRefreshToken = refreshTokenService.createRefreshToken(savedUser.getId());
+        AuthResponse response =  AuthResponse.builder()
                 .token(token)
                 .tokenType("Bearer")
                 .userId(savedUser.getId())
@@ -95,10 +99,11 @@ public class AuthServiceImpl implements AuthService {
                 .role(savedUser.getRole())
                 .expiresInMs(tokenProvider.getJwtExpirationMs())
                 .build();
+        return new AuthResult(response, rawRefreshToken);
     }
 
     @Override
-    public AuthResponse login(LoginRequest request) {
+    public AuthResult login(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
         );
@@ -108,8 +113,8 @@ public class AuthServiceImpl implements AuthService {
                         .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng: " + request.getUsername())));
 
         String token = tokenProvider.generateToken(user);
-
-        return AuthResponse.builder()
+        String rawRefreshToken = refreshTokenService.createRefreshToken(user.getId());
+        AuthResponse response = AuthResponse.builder()
                 .token(token)
                 .tokenType("Bearer")
                 .userId(user.getId())
@@ -118,5 +123,34 @@ public class AuthServiceImpl implements AuthService {
                 .role(user.getRole())
                 .expiresInMs(tokenProvider.getJwtExpirationMs())
                 .build();
+        return new AuthResult(response, rawRefreshToken);
+    }
+
+    @Override
+    public AuthResult refresh(String rawRefreshToken) {
+        String userId = refreshTokenService.validateAndRotate(rawRefreshToken);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
+
+        String newAccessToken = tokenProvider.generateToken(user);
+        String newRawRefreshToken = refreshTokenService.createRefreshToken(user.getId());
+
+        AuthResponse response = AuthResponse.builder()
+                .token(newAccessToken)
+                .tokenType("Bearer")
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .expiresInMs(tokenProvider.getJwtExpirationMs())
+                .build();
+
+        return new AuthResult(response, newRawRefreshToken);
+    }
+
+    @Override
+    public void logout(String rawRefreshToken) {
+        refreshTokenService.revoke(rawRefreshToken);
     }
 }

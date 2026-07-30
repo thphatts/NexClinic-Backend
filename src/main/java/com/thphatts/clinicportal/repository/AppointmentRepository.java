@@ -1,7 +1,7 @@
 package com.thphatts.clinicportal.repository;
 
 import com.thphatts.clinicportal.entity.Appointment;
-import com.thphatts.clinicportal.entity.AppointmentStatus;
+import com.thphatts.clinicportal.entity.enums.AppointmentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;

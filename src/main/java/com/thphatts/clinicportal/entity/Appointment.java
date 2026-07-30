@@ -1,5 +1,6 @@
 package com.thphatts.clinicportal.entity;
 
+import com.thphatts.clinicportal.entity.enums.AppointmentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 

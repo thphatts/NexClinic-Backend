@@ -1,4 +1,4 @@
-package com.thphatts.clinicportal.entity;
+package com.thphatts.clinicportal.entity.enums;
 
 public enum Role {
     ROLE_ADMIN,

@@ -1,7 +1,7 @@
 package com.thphatts.clinicportal.dto.request;
 
 import com.thphatts.clinicportal.annotation.Cccd;
-import com.thphatts.clinicportal.entity.Role;
+import com.thphatts.clinicportal.entity.enums.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
