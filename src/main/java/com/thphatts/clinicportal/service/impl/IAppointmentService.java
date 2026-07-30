@@ -13,6 +13,7 @@ import com.thphatts.clinicportal.repository.DoctorRepository;
 import com.thphatts.clinicportal.repository.PatientRepository;
 import com.thphatts.clinicportal.service.AppointmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -39,7 +40,7 @@ public class IAppointmentService implements AppointmentService {
         Doctor doctor = doctorRepository.findById(request.doctorId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bác sĩ với ID: " + request.doctorId()));
 
-        // Chống trùng ca khám của Bác sĩ trên cùng một ngày và khung giờ
+        // Chống trùng ca khám của Bác sĩ trên cùng một ngày và khung giờ (Application Check)
         boolean isConflict = appointmentRepository.existsByDoctorIdAndAppointmentDateAndTimeSlotAndStatusNot(
                 request.doctorId(), request.appointmentDate(), request.timeSlot(), AppointmentStatus.CANCELLED
         );
@@ -54,8 +55,14 @@ public class IAppointmentService implements AppointmentService {
         appointment.setDoctor(doctor);
         appointment.setStatus(AppointmentStatus.PENDING);
 
-        Appointment savedAppointment = appointmentRepository.save(appointment);
-        return appointmentMapper.toResponse(savedAppointment);
+        try {
+            // Dùng saveAndFlush để đẩy INSERT SQL xuống DB ngay lập tức nhằm bắt lỗi Unique Partial Index Constraint nếu xảy ra Race Condition
+            Appointment savedAppointment = appointmentRepository.saveAndFlush(appointment);
+            return appointmentMapper.toResponse(savedAppointment);
+        } catch (DataIntegrityViolationException ex) {
+            throw new RuntimeException("Bác sĩ " + doctor.getFullName() + " vừa có lịch hẹn mới được đăng ký vào khung giờ "
+                    + request.timeSlot() + " ngày " + request.appointmentDate() + ". Vui lòng chọn khung giờ khác!", ex);
+        }
     }
 
     @Override

@@ -1,7 +1,8 @@
-package com.thphatts.clinicportal.service;
+package com.thphatts.clinicportal.service.impl;
 
 import com.thphatts.clinicportal.entity.RefreshToken;
 import com.thphatts.clinicportal.repository.RefreshTokenRepository;
+import com.thphatts.clinicportal.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

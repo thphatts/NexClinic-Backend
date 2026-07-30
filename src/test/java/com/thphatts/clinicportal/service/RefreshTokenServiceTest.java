@@ -2,6 +2,7 @@ package com.thphatts.clinicportal.service;
 
 import com.thphatts.clinicportal.entity.RefreshToken;
 import com.thphatts.clinicportal.repository.RefreshTokenRepository;
+import com.thphatts.clinicportal.service.impl.IRefreshTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
