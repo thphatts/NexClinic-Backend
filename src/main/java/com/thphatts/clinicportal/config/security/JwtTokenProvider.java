@@ -17,15 +17,16 @@ import java.util.Map;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${app.jwt.secret}")
+    @Value("${app.jwt.secret}") // tự động lấy giá trị từ file application và gán vào biến lúc start
     private String jwtSecret;
 
     @Value("${app.jwt.expiration-ms}") // 24 Hours
     private long jwtExpirationMs;
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
-        return Keys.hmacShaKeyFor(keyBytes);
+        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret); // Decoder.BASE64.decode giải mã chuỗi Base64 thành mảng byte gốc
+        return Keys.hmacShaKeyFor(keyBytes); // Keys.hmacShaKeyFor(keyBytes) tạo ra khóa bí mật dùng cho thuật toán HMAC-SHA
+                                            // thuật toán ký số đối xứng - cùng 1 khóa để ký và verify
     }
 
     public String generateToken(User user) {
@@ -33,17 +34,16 @@ public class JwtTokenProvider {
         claims.put("id", user.getId());
         claims.put("email", user.getEmail());
         claims.put("role", user.getRole() != null ? user.getRole().name() : "ROLE_PATIENT");
-
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
                 .claims(claims)
-                .subject(user.getUsername())
+                .subject(user.getUsername()) // thiết lập chủ thể của token - dùng để nhận diện token này của ai
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
-                .compact();
+                .compact();  // đóng gói mọi thứ lại thành 1 chuỗi JWT hoàn chỉnh (dạng xxxxx.yyyyy.zzzzz)
     }
 
     public String getUsernameFromToken(String token) {

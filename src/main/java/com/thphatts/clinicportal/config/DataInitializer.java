@@ -2,7 +2,7 @@ package com.thphatts.clinicportal.config;
 
 import com.thphatts.clinicportal.entity.Checkup;
 import com.thphatts.clinicportal.entity.Patient;
-import com.thphatts.clinicportal.entity.Role;
+import com.thphatts.clinicportal.entity.enums.Role;
 import com.thphatts.clinicportal.entity.User;
 import com.thphatts.clinicportal.repository.PatientRepository;
 import com.thphatts.clinicportal.repository.UserRepository;

@@ -5,7 +5,7 @@ import com.thphatts.clinicportal.common.BaseController;
 import com.thphatts.clinicportal.dto.request.AppointmentRequest;
 import com.thphatts.clinicportal.dto.response.AppointmentResponse;
 import com.thphatts.clinicportal.dto.response.PagedResponse;
-import com.thphatts.clinicportal.entity.AppointmentStatus;
+import com.thphatts.clinicportal.entity.enums.AppointmentStatus;
 import com.thphatts.clinicportal.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

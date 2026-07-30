@@ -1,6 +1,6 @@
 package com.thphatts.clinicportal.dto.response;
 
-import com.thphatts.clinicportal.entity.AppointmentStatus;
+import com.thphatts.clinicportal.entity.enums.AppointmentStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

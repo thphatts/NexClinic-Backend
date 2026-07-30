@@ -7,7 +7,7 @@ import com.thphatts.clinicportal.mapper.UserMapper;
 import com.thphatts.clinicportal.repository.UserRepository;
 import com.thphatts.clinicportal.service.UserService;
 import lombok.RequiredArgsConstructor;
-import com.thphatts.clinicportal.entity.Role;
+import com.thphatts.clinicportal.entity.enums.Role;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 

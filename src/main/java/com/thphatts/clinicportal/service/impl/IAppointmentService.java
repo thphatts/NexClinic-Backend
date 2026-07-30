@@ -4,7 +4,7 @@ import com.thphatts.clinicportal.dto.request.AppointmentRequest;
 import com.thphatts.clinicportal.dto.response.AppointmentResponse;
 import com.thphatts.clinicportal.dto.response.PagedResponse;
 import com.thphatts.clinicportal.entity.Appointment;
-import com.thphatts.clinicportal.entity.AppointmentStatus;
+import com.thphatts.clinicportal.entity.enums.AppointmentStatus;
 import com.thphatts.clinicportal.entity.Doctor;
 import com.thphatts.clinicportal.entity.Patient;
 import com.thphatts.clinicportal.mapper.AppointmentMapper;
