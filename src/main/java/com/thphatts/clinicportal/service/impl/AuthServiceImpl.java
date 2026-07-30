@@ -11,7 +11,6 @@ import com.thphatts.clinicportal.entity.User;
 import com.thphatts.clinicportal.repository.PatientRepository;
 import com.thphatts.clinicportal.repository.UserRepository;
 import com.thphatts.clinicportal.service.AuthService;
-import com.thphatts.clinicportal.service.IRefreshTokenService;
 import com.thphatts.clinicportal.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
