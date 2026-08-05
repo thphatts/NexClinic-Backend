@@ -2,8 +2,11 @@ package com.thphatts.clinicportal.entity;
 
 import com.thphatts.clinicportal.entity.enums.AppointmentStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Null;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -44,6 +47,10 @@ public class Appointment {
 
     @Column(length = 255)
     private String notes;
+
+    @Column(name = "amount", nullable = false)
+    @Min(value = 1)
+    private BigDecimal amount;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
