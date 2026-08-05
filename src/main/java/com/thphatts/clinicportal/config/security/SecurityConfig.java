@@ -1,6 +1,7 @@
 package com.thphatts.clinicportal.config.security;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -28,6 +29,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @Value("${app.frontend.url:http://localhost:3000}")
+    private String frontendUrl;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -43,6 +47,12 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable) // tắt csrf vì dùng jwt qua header (stateless) không cần lưu cookie/session để xác thực
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .headers(headers -> headers
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31536000) // 1 năm HSTS
+                        )
+                )
                 // STATELESS = sever không tạo và lưu session cho user. mỗi req phải chứng minh danh tính qua token và sever không nhớ req trước đó
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -84,7 +94,12 @@ public class SecurityConfig {
         //    - setAllowedOriginPatterns: Phải chỉ định rõ domain của Frontend (ví dụ: http://localhost:3000, http://localhost:5173).
         //    - TRÌNH DUYỆT SẼ TỪ CHỐI GỬI COOKIE NẾU ORIGIN LÀ WILDCARD "*" KHI KẾT HỢP VỚI ALLOW CREDENTIALS!
         configuration.setAllowCredentials(true);
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000"));
+        configuration.setAllowedOriginPatterns(List.of(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:3000",
+                frontendUrl
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization", "Set-Cookie"));
@@ -94,3 +109,4 @@ public class SecurityConfig {
         return source;
     }
 }
+
