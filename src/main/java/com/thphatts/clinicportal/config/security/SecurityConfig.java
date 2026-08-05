@@ -61,8 +61,10 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/configuration/ui",
                                 "/configuration/security",
-                                "/webjars/**"
-                        ).permitAll()
+                                "/webjars/**",
+                                "/api/v1/payments/vnpay-return",
+                                "/api/v1/payments/vnpay-ipn"
+                                ).permitAll()
                         .anyRequest().authenticated()
                 );
 
