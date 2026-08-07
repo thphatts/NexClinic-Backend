@@ -42,4 +42,8 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     @EntityGraph(attributePaths = {"patient", "doctor"})
     List<Appointment> findByDoctorIdAndAppointmentDate(Long doctorId, LocalDate appointmentDate);
+
+    @Query("SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END FROM Appointment a WHERE a.doctor.user.id = :doctorUserId AND a.patient.id = :patientId")
+    boolean existsByDoctorUserIdAndPatientId(@Param("doctorUserId") String doctorUserId, @Param("patientId") Long patientId);
 }
+
