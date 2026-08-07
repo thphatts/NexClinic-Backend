@@ -1,5 +1,7 @@
 package com.thphatts.clinicportal.service.impl;
 
+import com.thphatts.clinicportal.config.security.MedicalRecordSecurity;
+import com.thphatts.clinicportal.config.security.UserPrincipal;
 import com.thphatts.clinicportal.dto.request.MedicalRecordRequest;
 import com.thphatts.clinicportal.dto.request.PrescriptionItemRequest;
 import com.thphatts.clinicportal.dto.response.MedicalRecordResponse;
@@ -27,6 +29,7 @@ public class IMedicalRecordService implements MedicalRecordService {
     private final AppointmentRepository appointmentRepository;
     private final ProductRepository productRepository;
     private final MedicalRecordMapper medicalRecordMapper;
+    private final MedicalRecordSecurity medicalRecordSecurity;
 
     @Override
     @Transactional
@@ -94,37 +97,48 @@ public class IMedicalRecordService implements MedicalRecordService {
 
     @Override
     @Transactional(readOnly = true)
-    public MedicalRecordResponse getMedicalRecordById(Long id) {
+    public MedicalRecordResponse getMedicalRecordById(Long id, UserPrincipal currentUser) {
         MedicalRecord medicalRecord = medicalRecordRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy hồ sơ bệnh án với ID: " + id));
+        checkReadAccess(medicalRecord, currentUser);
         return medicalRecordMapper.toResponse(medicalRecord);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public MedicalRecordResponse getMedicalRecordByAppointmentId(Long appointmentId) {
+    public MedicalRecordResponse getMedicalRecordByAppointmentId(Long appointmentId, UserPrincipal currentUser) {
         MedicalRecord medicalRecord = medicalRecordRepository.findByAppointmentId(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy hồ sơ bệnh án cho lịch hẹn ID: " + appointmentId));
+        checkReadAccess(medicalRecord, currentUser);
         return medicalRecordMapper.toResponse(medicalRecord);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<MedicalRecordResponse> getMedicalRecordsByPatientId(Long patientId) {
+    public List<MedicalRecordResponse> getMedicalRecordsByPatientId(Long patientId, UserPrincipal currentUser) {
+        if (!medicalRecordSecurity.canAccessPatientRecords(patientId, currentUser)) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem danh sách hồ sơ bệnh án của bệnh nhân này");
+        }
         List<MedicalRecord> list = medicalRecordRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
         return list.stream().map(medicalRecordMapper::toResponse).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<MedicalRecordResponse> getMedicalRecordsByDoctorId(Long doctorId) {
+    public List<MedicalRecordResponse> getMedicalRecordsByDoctorId(Long doctorId, UserPrincipal currentUser) {
+        if (!medicalRecordSecurity.canAccessPatientRecords(doctorId, currentUser)) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem danh sách hồ sơ bệnh án này");
+        }
         List<MedicalRecord> list = medicalRecordRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId);
         return list.stream().map(medicalRecordMapper::toResponse).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PagedResponse<MedicalRecordResponse> getAllMedicalRecords(Pageable pageable) {
+    public PagedResponse<MedicalRecordResponse> getAllMedicalRecords(Pageable pageable, UserPrincipal currentUser) {
+        if (currentUser == null || currentUser.getRole() != com.thphatts.clinicportal.entity.enums.Role.ROLE_ADMIN) {
+            throw new org.springframework.security.access.AccessDeniedException("Chỉ ADMIN mới có quyền xem toàn bộ danh sách hồ sơ bệnh án");
+        }
         Page<MedicalRecord> page = medicalRecordRepository.findAll(pageable);
         List<MedicalRecordResponse> items = page.getContent().stream()
                 .map(medicalRecordMapper::toResponse)
@@ -139,4 +153,18 @@ public class IMedicalRecordService implements MedicalRecordService {
                 page.isLast()
         );
     }
+
+    @Override
+    public void checkReadAccess(MedicalRecord record, UserPrincipal currentUser) {
+        if (record == null) {
+            throw new RuntimeException("Hồ sơ bệnh án không tồn tại");
+        }
+        if (currentUser == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Vui lòng đăng nhập để thực hiện thao tác");
+        }
+        if (!medicalRecordSecurity.canAccessRecord(record.getId(), currentUser)) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền truy cập hồ sơ bệnh án này");
+        }
+    }
+
 }

@@ -13,6 +13,11 @@ import java.util.Optional;
 @Repository
 public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Long> {
 
+
+    // @EntityGrab giúp ra lệnh cho spring sử dụng join fetch để lấy các thông tin được khai báo trong attribuiePathsa
+    // khắc phục lỗi hiệu năng N+1 Query
+
+
     @EntityGraph(attributePaths = {"appointment", "patient", "doctor", "prescription", "prescription.items", "prescription.items.product"})
     Optional<MedicalRecord> findById(Long id);
 
@@ -29,4 +34,6 @@ public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Lo
     Page<MedicalRecord> findAll(Pageable pageable);
 
     boolean existsByAppointmentId(Long appointmentId);
+
+    boolean existsByPatientIdAndDoctorUserId(Long patientId, String doctorUserId);
 }

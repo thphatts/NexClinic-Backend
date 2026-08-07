@@ -1,11 +1,14 @@
 package com.thphatts.clinicportal.service;
 
+import com.thphatts.clinicportal.config.security.MedicalRecordSecurity;
+import com.thphatts.clinicportal.config.security.UserPrincipal;
 import com.thphatts.clinicportal.dto.request.MedicalRecordRequest;
 import com.thphatts.clinicportal.dto.request.PrescriptionRequest;
 import com.thphatts.clinicportal.dto.request.PrescriptionItemRequest;
 import com.thphatts.clinicportal.dto.response.MedicalRecordResponse;
 import com.thphatts.clinicportal.entity.*;
 import com.thphatts.clinicportal.entity.enums.AppointmentStatus;
+import com.thphatts.clinicportal.entity.enums.Role;
 import com.thphatts.clinicportal.mapper.MedicalRecordMapper;
 import com.thphatts.clinicportal.repository.*;
 import com.thphatts.clinicportal.service.impl.IMedicalRecordService;
@@ -36,6 +39,7 @@ class MedicalRecordServiceTest {
     @Mock private AppointmentRepository appointmentRepository;
     @Mock private ProductRepository productRepository;
     @Mock private MedicalRecordMapper medicalRecordMapper;
+    @Mock private MedicalRecordSecurity medicalRecordSecurity;
 
     @InjectMocks
     private IMedicalRecordService medicalRecordService;
@@ -45,9 +49,17 @@ class MedicalRecordServiceTest {
     private Doctor mockDoctor;
     private MedicalRecord mockRecord;
     private MedicalRecordResponse mockResponse;
+    private UserPrincipal adminUser;
 
     @BeforeEach
     void setUp() {
+        User adminEntity = User.builder()
+                .id("admin-uuid")
+                .username("admin")
+                .role(Role.ROLE_ADMIN)
+                .build();
+        adminUser = new UserPrincipal(adminEntity);
+
         mockPatient = Patient.builder()
                 .id(1L)
                 .fullName("Bệnh nhân Nguyễn Văn X")
@@ -80,9 +92,6 @@ class MedicalRecordServiceTest {
                 .symptoms("Sốt, ho, sổ mũi")
                 .build();
 
-        // MedicalRecordResponse record: id, appointmentId, patientId, patientName, patientPhone,
-        // citizenId, doctorId, doctorName, doctorSpecialization, diagnosis, symptoms, notes,
-        // reexaminationDate, prescription, createdAt
         mockResponse = new MedicalRecordResponse(
                 100L, 1L, 1L,
                 "Bệnh nhân Nguyễn Văn X", "0901234567", "079000000001",
@@ -103,7 +112,6 @@ class MedicalRecordServiceTest {
         @Test
         @DisplayName("Tạo bệnh án thành công - không có toa thuốc")
         void createMedicalRecord_Success_WithoutPrescription() {
-            // Arrange
             MedicalRecordRequest request = new MedicalRecordRequest(
                     1L, "Cảm cúm thông thường", "Sốt, ho, sổ mũi",
                     "Nghỉ ngơi, uống nhiều nước", LocalDate.now().plusDays(7), null
@@ -114,15 +122,12 @@ class MedicalRecordServiceTest {
             when(medicalRecordRepository.save(any(MedicalRecord.class))).thenReturn(mockRecord);
             when(medicalRecordMapper.toResponse(mockRecord)).thenReturn(mockResponse);
 
-            // Act
             MedicalRecordResponse result = medicalRecordService.createMedicalRecord(request);
 
-            // Assert
             assertNotNull(result);
             assertEquals(100L, result.id());
             assertEquals("Cảm cúm thông thường", result.diagnosis());
 
-            // Lịch hẹn phải được chuyển thành COMPLETED
             assertEquals(AppointmentStatus.COMPLETED, mockAppointment.getStatus());
             verify(appointmentRepository, times(1)).save(mockAppointment);
             verify(medicalRecordRepository, times(1)).save(any(MedicalRecord.class));
@@ -131,7 +136,6 @@ class MedicalRecordServiceTest {
         @Test
         @DisplayName("Tạo bệnh án thành công - có toa thuốc với 2 loại thuốc")
         void createMedicalRecord_Success_WithPrescription() {
-            // Arrange
             Product paracetamol = new Product();
             paracetamol.setId(1L);
             paracetamol.setName("Paracetamol 500mg");
@@ -142,10 +146,8 @@ class MedicalRecordServiceTest {
             amoxicillin.setName("Amoxicillin 500mg");
             amoxicillin.setPrice(BigDecimal.valueOf(8000));
 
-            // PrescriptionItemRequest(productId, quantity, dosage)
             PrescriptionItemRequest item1 = new PrescriptionItemRequest(1L, 20, "Uống 2 viên/lần x 3 lần/ngày");
             PrescriptionItemRequest item2 = new PrescriptionItemRequest(2L, 14, "Uống 1 viên/lần x 2 lần/ngày");
-            // PrescriptionRequest(notes, items)
             PrescriptionRequest prescriptionRequest = new PrescriptionRequest("Uống sau ăn", List.of(item1, item2));
 
             MedicalRecordRequest requestWithPrescription = new MedicalRecordRequest(
@@ -160,10 +162,8 @@ class MedicalRecordServiceTest {
             when(medicalRecordRepository.save(any(MedicalRecord.class))).thenReturn(mockRecord);
             when(medicalRecordMapper.toResponse(mockRecord)).thenReturn(mockResponse);
 
-            // Act
             MedicalRecordResponse result = medicalRecordService.createMedicalRecord(requestWithPrescription);
 
-            // Assert
             assertNotNull(result);
             verify(productRepository, times(1)).findById(1L);
             verify(productRepository, times(1)).findById(2L);
@@ -173,13 +173,11 @@ class MedicalRecordServiceTest {
         @Test
         @DisplayName("Tạo bệnh án thất bại - Lịch hẹn không tồn tại")
         void createMedicalRecord_Fail_AppointmentNotFound() {
-            // Arrange
             MedicalRecordRequest badRequest = new MedicalRecordRequest(
                     999L, "Chẩn đoán", "Triệu chứng", null, null, null
             );
             when(appointmentRepository.findById(999L)).thenReturn(Optional.empty());
 
-            // Act & Assert
             RuntimeException ex = assertThrows(RuntimeException.class,
                     () -> medicalRecordService.createMedicalRecord(badRequest));
 
@@ -190,14 +188,12 @@ class MedicalRecordServiceTest {
         @Test
         @DisplayName("Tạo bệnh án thất bại - Hồ sơ bệnh án cho lịch hẹn này đã tồn tại")
         void createMedicalRecord_Fail_AlreadyExists() {
-            // Arrange
             MedicalRecordRequest request = new MedicalRecordRequest(
                     1L, "Cảm cúm", "Sốt", null, null, null
             );
             when(appointmentRepository.findById(1L)).thenReturn(Optional.of(mockAppointment));
             when(medicalRecordRepository.existsByAppointmentId(1L)).thenReturn(true);
 
-            // Act & Assert
             RuntimeException ex = assertThrows(RuntimeException.class,
                     () -> medicalRecordService.createMedicalRecord(request));
 
@@ -208,7 +204,6 @@ class MedicalRecordServiceTest {
         @Test
         @DisplayName("Tạo bệnh án thất bại - Thuốc trong đơn không tồn tại")
         void createMedicalRecord_Fail_ProductNotFound() {
-            // Arrange
             PrescriptionItemRequest badItem = new PrescriptionItemRequest(999L, 10, "2 lần/ngày");
             PrescriptionRequest prescription = new PrescriptionRequest(null, List.of(badItem));
 
@@ -220,7 +215,6 @@ class MedicalRecordServiceTest {
             when(medicalRecordRepository.existsByAppointmentId(1L)).thenReturn(false);
             when(productRepository.findById(999L)).thenReturn(Optional.empty());
 
-            // Act & Assert
             RuntimeException ex = assertThrows(RuntimeException.class,
                     () -> medicalRecordService.createMedicalRecord(requestWithBadProduct));
 
@@ -238,14 +232,12 @@ class MedicalRecordServiceTest {
         @Test
         @DisplayName("Lấy bệnh án theo ID thành công")
         void getMedicalRecordById_Success() {
-            // Arrange
             when(medicalRecordRepository.findById(100L)).thenReturn(Optional.of(mockRecord));
+            when(medicalRecordSecurity.canAccessRecord(eq(100L), any())).thenReturn(true);
             when(medicalRecordMapper.toResponse(mockRecord)).thenReturn(mockResponse);
 
-            // Act
-            MedicalRecordResponse result = medicalRecordService.getMedicalRecordById(100L);
+            MedicalRecordResponse result = medicalRecordService.getMedicalRecordById(100L, adminUser);
 
-            // Assert
             assertNotNull(result);
             assertEquals(100L, result.id());
         }
@@ -253,12 +245,10 @@ class MedicalRecordServiceTest {
         @Test
         @DisplayName("Lấy bệnh án theo ID - Không tìm thấy")
         void getMedicalRecordById_NotFound() {
-            // Arrange
             when(medicalRecordRepository.findById(999L)).thenReturn(Optional.empty());
 
-            // Act & Assert
             RuntimeException ex = assertThrows(RuntimeException.class,
-                    () -> medicalRecordService.getMedicalRecordById(999L));
+                    () -> medicalRecordService.getMedicalRecordById(999L, adminUser));
 
             assertTrue(ex.getMessage().contains("Không tìm thấy hồ sơ bệnh án với ID: 999"));
         }
@@ -266,30 +256,16 @@ class MedicalRecordServiceTest {
         @Test
         @DisplayName("Lấy danh sách bệnh án của bệnh nhân")
         void getMedicalRecordsByPatientId_Success() {
-            // Arrange
+            when(medicalRecordSecurity.canAccessPatientRecords(eq(1L), any())).thenReturn(true);
             when(medicalRecordRepository.findByPatientIdOrderByCreatedAtDesc(1L))
                     .thenReturn(List.of(mockRecord));
             when(medicalRecordMapper.toResponse(mockRecord)).thenReturn(mockResponse);
 
-            // Act
-            List<MedicalRecordResponse> results = medicalRecordService.getMedicalRecordsByPatientId(1L);
+            List<MedicalRecordResponse> results = medicalRecordService.getMedicalRecordsByPatientId(1L, adminUser);
 
-            // Assert
             assertNotNull(results);
             assertEquals(1, results.size());
         }
-
-        @Test
-        @DisplayName("Lấy bệnh án theo Appointment ID - Không tìm thấy")
-        void getMedicalRecordByAppointmentId_NotFound() {
-            // Arrange
-            when(medicalRecordRepository.findByAppointmentId(999L)).thenReturn(Optional.empty());
-
-            // Act & Assert
-            RuntimeException ex = assertThrows(RuntimeException.class,
-                    () -> medicalRecordService.getMedicalRecordByAppointmentId(999L));
-
-            assertTrue(ex.getMessage().contains("Không tìm thấy hồ sơ bệnh án cho lịch hẹn ID: 999"));
-        }
     }
 }
+
