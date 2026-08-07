@@ -71,6 +71,3 @@ build/
 
 ### VS Code ###
 .vscode/
-
-### Frontend Subfolder ###
-fe/
