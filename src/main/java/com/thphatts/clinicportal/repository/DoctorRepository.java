@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface DoctorRepository extends JpaRepository<Doctor, Long> {
 
@@ -26,4 +27,7 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
            "LOWER(d.specialization) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "d.phone LIKE CONCAT('%', :search, '%')")
     Page<Doctor> searchDoctors(@Param("search") String search, Pageable pageable);
+
+    @Query("SELECT d.user.id FROM Doctor d WHERE d.id = :doctorId")
+    Optional<String> findUserIdByDoctorId(@Param("doctorId") Long doctorId);
 }

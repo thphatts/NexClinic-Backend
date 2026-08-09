@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -75,6 +76,11 @@ public class SecurityConfig {
                                 "/api/v1/payments/vnpay-return",
                                 "/api/v1/payments/vnpay-ipn"
                                 ).permitAll()
+                        // Chỉ cho phép GET công khai với 2 endpoint đọc lịch làm việc
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/doctors/*/schedules",
+                                "/api/v1/doctors/*/schedules/available-slots"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 );
 

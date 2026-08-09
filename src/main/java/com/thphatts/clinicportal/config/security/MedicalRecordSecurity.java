@@ -4,6 +4,7 @@ import com.thphatts.clinicportal.entity.MedicalRecord;
 import com.thphatts.clinicportal.entity.Patient;
 import com.thphatts.clinicportal.entity.enums.Role;
 import com.thphatts.clinicportal.repository.AppointmentRepository;
+import com.thphatts.clinicportal.repository.DoctorRepository;
 import com.thphatts.clinicportal.repository.MedicalRecordRepository;
 import com.thphatts.clinicportal.repository.PatientRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ public class MedicalRecordSecurity {
     private final MedicalRecordRepository medicalRecordRepository;
     private final PatientRepository patientRepository;
     private final AppointmentRepository appointmentRepository;
+    private final DoctorRepository doctorRepository;
 
     public boolean canAccessRecord(Long recordId, UserPrincipal currentUser) {
         if (currentUser == null || currentUser.getRole() == null) {
@@ -80,6 +82,24 @@ public class MedicalRecordSecurity {
 
         if (currentUser.getRole() == Role.ROLE_DOCTOR) {
             return appointmentRepository.existsByDoctorUserIdAndPatientId(currentUser.getUserId(), patientId);
+        }
+
+        return false;
+    }
+
+    public boolean canAccessDoctorRecords(Long doctorId, UserPrincipal currentUser) {
+        if (currentUser == null || currentUser.getRole() == null) {
+            return false;
+        }
+
+        if (currentUser.getRole() == Role.ROLE_ADMIN) {
+            return true;
+        }
+
+        if (currentUser.getRole() == Role.ROLE_DOCTOR) {
+            return doctorRepository.findUserIdByDoctorId(doctorId)
+                    .map(userId -> userId.equals(currentUser.getUserId()))
+                    .orElse(false);
         }
 
         return false;

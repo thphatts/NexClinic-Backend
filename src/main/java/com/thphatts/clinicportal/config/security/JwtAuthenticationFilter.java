@@ -1,5 +1,7 @@
 package com.thphatts.clinicportal.config.security;
 
+import com.thphatts.clinicportal.entity.User;
+import com.thphatts.clinicportal.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,7 +25,7 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
-    private final CustomUserDetailsService userDetailsService;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -35,15 +37,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromToken(jwt);
 
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                User user = userRepository.findByUsername(username)
+                        .orElseGet(() -> userRepository.findByEmail(username).orElse(null));
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                if (user != null) {
+                    UserPrincipal userPrincipal = new UserPrincipal(user);
+
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            userPrincipal,          // <-- giờ principal là UserPrincipal, khớp với @AuthenticationPrincipal
+                            null,
+                            userPrincipal.getAuthorities()
+                    );
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                } else {
+                    log.warn("Token hợp lệ nhưng không tìm thấy user với username/email: {}", username);
+                }
             }
         } catch (Exception ex) {
             log.error("Không thể thiết lập xác thực người dùng trong Security Context: {}", ex.getMessage());
@@ -51,6 +61,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
+
 
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");

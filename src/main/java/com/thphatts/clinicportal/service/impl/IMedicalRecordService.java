@@ -126,7 +126,7 @@ public class IMedicalRecordService implements MedicalRecordService {
     @Override
     @Transactional(readOnly = true)
     public List<MedicalRecordResponse> getMedicalRecordsByDoctorId(Long doctorId, UserPrincipal currentUser) {
-        if (!medicalRecordSecurity.canAccessPatientRecords(doctorId, currentUser)) {
+        if (!medicalRecordSecurity.canAccessDoctorRecords(doctorId, currentUser)) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem danh sách hồ sơ bệnh án này");
         }
         List<MedicalRecord> list = medicalRecordRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId);
