@@ -1,4 +1,4 @@
--- src/main/resources/db/migration/V17__create_doctor_schedule_tables.sql
+-- V17__create_doctor_schedule_tables.sql - Doctor schedule and leaves migration
 
 CREATE TABLE IF NOT EXISTS doctor_schedules (
     id BIGSERIAL PRIMARY KEY,
