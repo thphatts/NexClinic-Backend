@@ -47,6 +47,12 @@ public class GlobalExecptionHandler {
                 .body(ApiResponse.error(403, "Bạn không có quyền thực hiện thao tác này"));
     }
 
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> handleNoResourceFoundException(Exception ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(404, "Trang hoặc tài nguyên không tồn tại"));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGenericException(Exception ex) {
         log.error("Internal system error: ", ex);
