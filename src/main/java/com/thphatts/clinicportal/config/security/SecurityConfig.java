@@ -103,17 +103,16 @@ public class SecurityConfig {
         //    - TRÌNH DUYỆT SẼ TỪ CHỐI GỬI COOKIE NẾU ORIGIN LÀ WILDCARD "*" KHI KẾT HỢP VỚI ALLOW CREDENTIALS!
         // Cho phép gửi credentials (Cookie/Bearer token) từ các domain được chỉ định cụ thể
         configuration.setAllowCredentials(true);
-        
-        // Phân tách các domain từ biến môi trường app.frontend.url (ví dụ: https://my-app.vercel.app,http://localhost:3000)
+
         List<String> allowedOrigins = java.util.Arrays.stream(frontendUrl.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(java.util.stream.Collectors.toList());
 
-        // Bổ sung các domain mặc định phát triển local và domain Vercel chính chủ của dự án
         allowedOrigins.add("http://localhost:3000");
         allowedOrigins.add("http://localhost:5173");
         allowedOrigins.add("http://127.0.0.1:3000");
+        allowedOrigins.add("https://nex-clinic-fontend.vercel.app");
         
         configuration.setAllowedOriginPatterns(allowedOrigins.stream().distinct().toList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
