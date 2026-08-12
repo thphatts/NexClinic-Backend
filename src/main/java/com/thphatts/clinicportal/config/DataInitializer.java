@@ -76,13 +76,6 @@ public class DataInitializer implements CommandLineRunner {
 
             userRepository.saveAll(List.of(admin, doctor, receptionist, patientUser));
             log.info("Khởi tạo thành công các tài khoản mẫu!");
-        } else {
-            // Đồng bộ mật khẩu admin thành password123
-            userRepository.findByUsername("admin").ifPresent(admin -> {
-                admin.setPassword(passwordEncoder.encode("password123"));
-                userRepository.save(admin);
-                log.info("Đã cập nhật lại mật khẩu admin thành password123");
-            });
         }
     }
 

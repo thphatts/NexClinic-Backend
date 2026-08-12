@@ -99,13 +99,21 @@ public class SecurityConfig {
         //    - setAllowCredentials(true): Cho phép gửi/nhận cookie và header xác thực.
         //    - setAllowedOriginPatterns: Phải chỉ định rõ domain của Frontend (ví dụ: http://localhost:3000, http://localhost:5173).
         //    - TRÌNH DUYỆT SẼ TỪ CHỐI GỬI COOKIE NẾU ORIGIN LÀ WILDCARD "*" KHI KẾT HỢP VỚI ALLOW CREDENTIALS!
+        // Cho phép gửi credentials (Cookie/Bearer token) từ các domain được chỉ định cụ thể
         configuration.setAllowCredentials(true);
-        configuration.setAllowedOriginPatterns(List.of(
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "http://127.0.0.1:3000",
-                frontendUrl
-        ));
+        
+        // Phân tách các domain từ biến môi trường app.frontend.url (ví dụ: https://my-app.vercel.app,http://localhost:3000)
+        List<String> allowedOrigins = java.util.Arrays.stream(frontendUrl.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(java.util.stream.Collectors.toList());
+
+        // Bổ sung các domain mặc định phát triển local và domain Vercel chính chủ của dự án
+        allowedOrigins.add("http://localhost:3000");
+        allowedOrigins.add("http://localhost:5173");
+        allowedOrigins.add("http://127.0.0.1:3000");
+        
+        configuration.setAllowedOriginPatterns(allowedOrigins.stream().distinct().toList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization", "Set-Cookie"));
