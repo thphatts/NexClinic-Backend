@@ -113,6 +113,8 @@ public class SecurityConfig {
         allowedOrigins.add("http://localhost:5173");
         allowedOrigins.add("http://127.0.0.1:3000");
         allowedOrigins.add("https://nex-clinic-fontend.vercel.app");
+        allowedOrigins.add("https://*.vercel.app");
+        allowedOrigins.add("https://*.onrender.com");
         
         configuration.setAllowedOriginPatterns(allowedOrigins.stream().distinct().toList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
