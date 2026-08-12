@@ -59,7 +59,12 @@ public class AuthController {
             authService.logout(refreshToken);
         }
         ResponseCookie deleteCookie = ResponseCookie.from(REFRESH_COOKIE_NAME, "")
-                .httpOnly(true).secure(true).path("/api/v1/auth").maxAge(0).build();
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .path("/api/v1/auth")
+                .maxAge(0)
+                .build();
         httpResponse.addHeader(HttpHeaders.SET_COOKIE, deleteCookie.toString());
         return ResponseEntity.ok(new ApiResponse<>(200, "Đăng xuất thành công", null));
     }
@@ -68,7 +73,7 @@ public class AuthController {
         ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE_NAME, rawRefreshToken)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("Strict")
+                .sameSite("None")
                 .path("/api/v1/auth")
                 .maxAge(7 * 24 * 60 * 60)
                 .build();

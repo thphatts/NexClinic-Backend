@@ -8,6 +8,7 @@ import com.thphatts.clinicportal.repository.PatientRepository;
 import com.thphatts.clinicportal.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Component
+@Profile("dev")
 @RequiredArgsConstructor
 @Slf4j
 public class DataInitializer implements CommandLineRunner {

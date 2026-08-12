@@ -41,7 +41,7 @@ services:
       - DB_NAME=${POSTGRES_DB:-my_postgres_db}
       - DB_USERNAME=${POSTGRES_USER:-admin}
       - DB_PASSWORD=${POSTGRES_PASSWORD:-password123}
-      - JWT_SECRET=${JWT_SECRET:-[REDACTED_SECRET]}
+      - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS:-86400000}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     depends_on:

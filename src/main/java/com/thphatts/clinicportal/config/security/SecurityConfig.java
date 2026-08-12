@@ -29,6 +29,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitingFilter rateLimitingFilter;
 
     @Value("${app.frontend.url:http://localhost:3000}")
     private String frontendUrl;
@@ -84,6 +85,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 );
 
+        http.addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
