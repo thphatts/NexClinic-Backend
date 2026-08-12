@@ -4,8 +4,10 @@ import com.thphatts.clinicportal.entity.Doctor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,4 +32,14 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
 
     @Query("SELECT d.user.id FROM Doctor d WHERE d.id = :doctorId")
     Optional<String> findUserIdByDoctorId(@Param("doctorId") Long doctorId);
+
+    @Modifying
+    @Transactional
+    @Query(value = """
+        UPDATE doctors
+        SET average_rating = COALESCE((SELECT AVG(rating) FROM doctor_reviews WHERE doctor_id = :doctorId AND deleted = false), 0),
+            total_reviews = (SELECT COUNT(*) FROM doctor_reviews WHERE doctor_id = :doctorId AND deleted = false)
+        WHERE id = :doctorId
+        """, nativeQuery = true)
+    void recalculateRatingStats(@Param("doctorId") Long doctorId);
 }

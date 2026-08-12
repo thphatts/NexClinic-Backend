@@ -40,6 +40,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             Pageable pageable
     );
 
+    @Query("SELECT COUNT(a) FROM Appointment a WHERE a.doctor.id = :doctorId AND a.patient.id = :patientId AND a.status = 'COMPLETED'")
+    int visitsCountSnapshot(@Param("patientId") Long patientId, @Param("doctorId") Long doctorId);
+
+
     @EntityGraph(attributePaths = {"patient", "doctor"})
     List<Appointment> findByDoctorIdAndAppointmentDate(Long doctorId, LocalDate appointmentDate);
 

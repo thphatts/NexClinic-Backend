@@ -42,6 +42,14 @@ public class Doctor {
     @Builder.Default
     private BigDecimal consultationFee = BigDecimal.ZERO;
 
+    @Column(name = "average_rating", precision = 3, scale = 2)
+    @Builder.Default
+    private BigDecimal averageRating = BigDecimal.ZERO;
+
+    @Column(name = "total_reviews")
+    @Builder.Default
+    private Integer totalReviews = 0;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
