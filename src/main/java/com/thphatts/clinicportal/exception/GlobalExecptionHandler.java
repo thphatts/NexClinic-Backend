@@ -32,12 +32,20 @@ public class GlobalExecptionHandler {
             BadCredentialsException.class,
             UsernameNotFoundException.class,
             IllegalArgumentException.class,
-            IllegalStateException.class
+            IllegalStateException.class,
+            RuntimeException.class
     })
     public ResponseEntity<ApiResponse<Object>> handleBusinessException(RuntimeException ex) {
         log.warn("Business exception: {}", ex.getMessage());
         return ResponseEntity.badRequest()
                 .body(ApiResponse.error(400, ex.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolationException(Exception ex) {
+        log.warn("Data integrity violation: {}", ex.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(400, "Thông tin đăng ký (Username, Email, Số điện thoại hoặc CCCD) đã tồn tại trong hệ thống"));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

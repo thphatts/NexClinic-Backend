@@ -41,50 +41,46 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Email đã được đăng ký: " + request.getEmail());
         }
 
-        if (request.getCitizenId() != null && !request.getCitizenId().isBlank()) {
-            if (userRepository.existsByCitizenId(request.getCitizenId())) {
-                throw new RuntimeException("Số CCCD đã được đăng ký tài khoản trong hệ thống: " + request.getCitizenId());
+        String citizenId = (request.getCitizenId() != null && !request.getCitizenId().isBlank()) ? request.getCitizenId().trim() : null;
+        String phone = (request.getPhone() != null && !request.getPhone().isBlank()) ? request.getPhone().trim() : null;
+        String address = (request.getAddress() != null && !request.getAddress().isBlank()) ? request.getAddress().trim() : null;
+
+        if (citizenId != null) {
+            if (userRepository.existsByCitizenId(citizenId)) {
+                throw new RuntimeException("Số CCCD đã được đăng ký tài khoản trong hệ thống: " + citizenId);
             }
         }
 
         Role role = Role.ROLE_PATIENT;
 
         User user = User.builder()
-                .name(request.getName())
-                .username(request.getUsername())
-                .email(request.getEmail())
+                .name(request.getName().trim())
+                .username(request.getUsername().trim())
+                .email(request.getEmail().trim())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .phoneNumber(request.getPhone())
-                .address(request.getAddress())
-                .citizenId(request.getCitizenId())
+                .phoneNumber(phone)
+                .address(address)
+                .citizenId(citizenId)
                 .role(role)
                 .build();
 
         User savedUser = userRepository.save(user);
 
         // Tự động liên kết hoặc khởi tạo Hồ sơ Bệnh nhân (Patient Record)
-        if (request.getCitizenId() != null && !request.getCitizenId().isBlank()) {
-            patientRepository.findByCitizenId(request.getCitizenId()).ifPresentOrElse(
+        if (citizenId != null) {
+            patientRepository.findByCitizenId(citizenId).ifPresentOrElse(
                     existingPatient -> {
                         existingPatient.setUserId(savedUser.getId());
                         if (request.getDob() != null) existingPatient.setDob(request.getDob());
                         if (request.getGender() != null) existingPatient.setGender(request.getGender());
+                        if (phone != null) existingPatient.setPhone(phone);
+                        if (address != null) existingPatient.setAddress(address);
                         patientRepository.save(existingPatient);
                     },
-                    () -> {
-                        Patient newPatient = Patient.builder()
-                                .fullName(savedUser.getName())
-                                .citizenId(savedUser.getCitizenId())
-                                .phone(savedUser.getPhoneNumber())
-                                .email(savedUser.getEmail())
-                                .address(savedUser.getAddress())
-                                .dob(request.getDob())
-                                .gender(request.getGender())
-                                .userId(savedUser.getId())
-                                .build();
-                        patientRepository.save(newPatient);
-                    }
+                    () -> createNewPatientRecord(savedUser, request, citizenId, phone, address)
             );
+        } else {
+            createNewPatientRecord(savedUser, request, null, phone, address);
         }
 
         String token = tokenProvider.generateToken(savedUser);
@@ -151,5 +147,19 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void logout(String rawRefreshToken) {
         refreshTokenService.revoke(rawRefreshToken);
+    }
+
+    private void createNewPatientRecord(User savedUser, RegisterRequest request, String citizenId, String phone, String address) {
+        Patient newPatient = Patient.builder()
+                .fullName(savedUser.getName())
+                .citizenId(citizenId)
+                .phone(phone)
+                .email(savedUser.getEmail())
+                .address(address)
+                .dob(request.getDob())
+                .gender(request.getGender())
+                .userId(savedUser.getId())
+                .build();
+        patientRepository.save(newPatient);
     }
 }
