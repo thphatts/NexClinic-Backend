@@ -1,5 +1,6 @@
 package com.thphatts.clinicportal.service.impl;
 
+import com.thphatts.clinicportal.config.security.UserPrincipal;
 import com.thphatts.clinicportal.dto.request.PatientRequest;
 import com.thphatts.clinicportal.dto.response.PagedResponse;
 import com.thphatts.clinicportal.dto.response.PatientResponse;
@@ -68,6 +69,21 @@ public class IPatientService implements PatientService {
     public PatientResponse getPatientByCitizenId(String citizenId) {
         Patient patient = patientRepository.findByCitizenId(citizenId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bệnh nhân với số CCCD/CMND: " + citizenId));
+        return patientMapper.toResponse(patient);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PatientResponse getMyPatientProfile(UserPrincipal currentUser) {
+        if (currentUser == null || currentUser.getUserId() == null) {
+            throw new RuntimeException("Phiên làm việc không hợp lệ.");
+        }
+        Patient patient = patientRepository.findByUserId(currentUser.getUserId())
+                .orElseGet(() -> patientRepository.findAll().stream()
+                        .filter(p -> p.getUserId() != null && currentUser.getUserId().equals(p.getUserId()))
+                        .findFirst()
+                        .orElseThrow(() -> new RuntimeException("Không tìm thấy hồ sơ bệnh nhân cho tài khoản này."))
+                );
         return patientMapper.toResponse(patient);
     }
 

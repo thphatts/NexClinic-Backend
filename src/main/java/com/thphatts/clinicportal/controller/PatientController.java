@@ -14,12 +14,20 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.thphatts.clinicportal.config.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
 @RestController
 @RequestMapping("/api/v1/patients")
 @RequiredArgsConstructor
 public class PatientController extends BaseController {
 
     private final PatientService patientService;
+
+    @GetMapping("/me")
+    public ApiResponse<PatientResponse> getMyPatientProfile(@AuthenticationPrincipal UserPrincipal currentUser) {
+        return ApiResponse.success(patientService.getMyPatientProfile(currentUser));
+    }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
