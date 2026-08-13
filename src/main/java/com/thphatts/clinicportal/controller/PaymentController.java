@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import java.util.Map;
 
 @RestController
@@ -23,6 +24,7 @@ public class PaymentController {
     private final AppointmentService appointmentService;
 
     @PostMapping("/create")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'ROLE_PATIENT', 'PATIENT')")
     public ResponseEntity<ApiResponse<PaymentResponse>> create (@Valid @RequestBody CreatePaymentRequest request, HttpServletRequest httpRequest) {
         String ipAddress = httpRequest.getRemoteAddr();
 

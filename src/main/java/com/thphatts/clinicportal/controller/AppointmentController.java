@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -58,6 +59,7 @@ public class AppointmentController extends BaseController {
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
     public ApiResponse<AppointmentResponse> updateAppointmentStatus(
             @PathVariable Long id,
             @RequestParam(name = "status") AppointmentStatus status,
@@ -67,6 +69,7 @@ public class AppointmentController extends BaseController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
     public ApiResponse<String> cancelAppointment(@PathVariable Long id) {
         appointmentService.cancelAppointment(id);
         return ApiResponse.success("Đã hủy lịch hẹn có ID: " + id + " thành công.");

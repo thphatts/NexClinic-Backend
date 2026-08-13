@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,11 +22,13 @@ public class PatientController extends BaseController {
     private final PatientService patientService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
     public ApiResponse<PatientResponse> createPatient(@Valid @RequestBody PatientRequest request) {
         return ApiResponse.success(patientService.createPatient(request));
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
     public ApiResponse<PagedResponse<PatientResponse>> getAllPatients(
             @RequestParam(value = "page_no", defaultValue = "1") int page,
             @RequestParam(value = "page_size", defaultValue = "10") int size,
@@ -43,16 +46,19 @@ public class PatientController extends BaseController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
     public ApiResponse<PatientResponse> getPatientById(@PathVariable("id") Long id) {
         return ApiResponse.success(patientService.getPatientById(id));
     }
 
     @GetMapping("/citizen-id/{citizenId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
     public ApiResponse<PatientResponse> getPatientByCitizenId(@PathVariable("citizenId") String citizenId) {
         return ApiResponse.success(patientService.getPatientByCitizenId(citizenId));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
     public ApiResponse<PatientResponse> updatePatient(
             @PathVariable("id") Long id,
             @Valid @RequestBody PatientRequest request
@@ -61,6 +67,7 @@ public class PatientController extends BaseController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<String> deletePatient(@PathVariable("id") Long id) {
         patientService.deletePatient(id);
         return ApiResponse.success("Xóa thông tin bệnh nhân thành công (ID: " + id + ")");

@@ -11,10 +11,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import java.util.List;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping(value = "/api/v1/users")
+@PreAuthorize("hasRole('ADMIN')")
 public class UserController extends BaseController {
     private final UserService userService;
     @GetMapping
