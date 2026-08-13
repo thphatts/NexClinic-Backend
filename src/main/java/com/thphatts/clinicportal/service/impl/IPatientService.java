@@ -16,11 +16,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+import com.thphatts.clinicportal.entity.User;
+import com.thphatts.clinicportal.repository.UserRepository;
+
 @Service
 @RequiredArgsConstructor
 public class IPatientService implements PatientService {
 
     private final PatientRepository patientRepository;
+    private final UserRepository userRepository;
     private final PatientMapper patientMapper;
 
     @Override
@@ -73,17 +77,51 @@ public class IPatientService implements PatientService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public PatientResponse getMyPatientProfile(UserPrincipal currentUser) {
         if (currentUser == null || currentUser.getUserId() == null) {
             throw new RuntimeException("Phiên làm việc không hợp lệ.");
         }
         Patient patient = patientRepository.findByUserId(currentUser.getUserId())
-                .orElseGet(() -> patientRepository.findAll().stream()
-                        .filter(p -> p.getUserId() != null && currentUser.getUserId().equals(p.getUserId()))
-                        .findFirst()
-                        .orElseThrow(() -> new RuntimeException("Không tìm thấy hồ sơ bệnh nhân cho tài khoản này."))
-                );
+                .orElseGet(() -> {
+                    User user = userRepository.findById(currentUser.getUserId()).orElse(null);
+                    if (user != null) {
+                        if (user.getCitizenId() != null && !user.getCitizenId().isBlank()) {
+                            var pOpt = patientRepository.findByCitizenId(user.getCitizenId());
+                            if (pOpt.isPresent()) {
+                                Patient p = pOpt.get();
+                                p.setUserId(user.getId());
+                                return patientRepository.save(p);
+                            }
+                        }
+                        if (user.getPhoneNumber() != null && !user.getPhoneNumber().isBlank()) {
+                            var pOpt = patientRepository.findByPhone(user.getPhoneNumber());
+                            if (pOpt.isPresent()) {
+                                Patient p = pOpt.get();
+                                p.setUserId(user.getId());
+                                return patientRepository.save(p);
+                            }
+                        }
+                        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+                            var pOpt = patientRepository.findByEmail(user.getEmail());
+                            if (pOpt.isPresent()) {
+                                Patient p = pOpt.get();
+                                p.setUserId(user.getId());
+                                return patientRepository.save(p);
+                            }
+                        }
+                        Patient newPatient = Patient.builder()
+                                .fullName(user.getName() != null && !user.getName().isBlank() ? user.getName() : user.getUsername())
+                                .email(user.getEmail())
+                                .phone(user.getPhoneNumber())
+                                .citizenId(user.getCitizenId())
+                                .address(user.getAddress())
+                                .userId(user.getId())
+                                .build();
+                        return patientRepository.save(newPatient);
+                    }
+                    throw new RuntimeException("Không tìm thấy hồ sơ bệnh nhân cho tài khoản này.");
+                });
         return patientMapper.toResponse(patient);
     }
 
