@@ -40,7 +40,7 @@ import org.springframework.context.annotation.Import;
 @WebMvcTest(controllers = {MedicalRecordController.class, DoctorScheduleController.class})
 @Import({com.thphatts.clinicportal.config.security.SecurityConfig.class, JwtAuthenticationFilter.class, JwtTokenProvider.class, CustomUserDetailsService.class})
 @TestPropertySource(properties = {
-        "app.jwt.secret=[REDACTED_SECRET]",
+        "app.jwt.secret=c2VjcmV0S2V5Rm9ySnd0VG9rZW5HZW5lcmF0aW9uVGVzdGluZ1B1cnBvc2VzT25seTEyMzQ1Njc4OTA=",
         "app.jwt.expiration-ms=86400000"
 })
 @DisplayName("Integration Tests: Spring Security & JWT Filter Wiring")
