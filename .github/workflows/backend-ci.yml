@@ -1,0 +1,49 @@
+name: NexClinic Backend CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-and-build:
+    name: Security Scan & Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Secret Scanning with Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Maven Test Compile & Unit Tests
+        run: ./mvnw clean test -DskipITs
+
+      - name: Verify Production Package (JAR Build)
+        run: ./mvnw package -DskipTests
+
+  deploy-notify:
+    name: Production Deployment Notification
+    needs: security-and-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deployment (Optional Secret Hook)
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        run: |
+          echo "Triggering Render Auto-Deploy..."
+          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
