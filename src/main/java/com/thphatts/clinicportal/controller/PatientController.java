@@ -18,7 +18,7 @@ import com.thphatts.clinicportal.config.security.UserPrincipal;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
-@RequestMapping("/api/v1/patients")
+    @RequestMapping("/api/v1/patients")
 @RequiredArgsConstructor
 public class PatientController extends BaseController {
 

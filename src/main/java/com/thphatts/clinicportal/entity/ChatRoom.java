@@ -7,7 +7,13 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "clinic_chat_rooms")
+@Table(
+    name = "clinic_chat_rooms",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uq_chat_room_doctor_patient",
+        columnNames = {"doctor_id", "patient_id"}
+    )
+)
 @Getter
 @Setter
 @NoArgsConstructor

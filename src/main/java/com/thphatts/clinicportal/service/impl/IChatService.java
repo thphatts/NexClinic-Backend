@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @Slf4j
 @Service
@@ -140,19 +141,28 @@ public class IChatService implements ChatService {
     @Transactional
     public ChatRoomResponse getOrCreateRoom(CreateChatRoomRequest request, UserPrincipal currentUser) {
         // Nếu đã có phòng giữa bác sĩ và bệnh nhân này → trả về phòng cũ
-        ChatRoom room = chatRoomRepository
-                .findByDoctorIdAndPatientId(request.getDoctorId(), request.getPatientId())
-                .orElseGet(() -> {
-                    ChatRoom newRoom = ChatRoom.builder()
-                            .doctorId(request.getDoctorId())
-                            .patientId(request.getPatientId())
-                            .appointmentId(request.getAppointmentId())
-                            .status(ChatRoomStatus.ACTIVE)
-                            .build();
-                    return chatRoomRepository.save(newRoom);
-                });
-
-        return toRoomResponse(room, currentUser.getUserId());
+        try {
+            ChatRoom room = chatRoomRepository
+                    .findByDoctorIdAndPatientId(request.getDoctorId(), request.getPatientId())
+                    .orElseGet(() -> {
+                        ChatRoom newRoom = ChatRoom.builder()
+                                .doctorId(request.getDoctorId())
+                                .patientId(request.getPatientId())
+                                .appointmentId(request.getAppointmentId())
+                                .status(ChatRoomStatus.ACTIVE)
+                                .build();
+                        return chatRoomRepository.save(newRoom);
+                    });
+            return toRoomResponse(room, currentUser.getUserId());
+        } catch (DataIntegrityViolationException e) {
+            // Race condition: phòng đã được tạo đồng thời bởi request khác → trả về phòng đó
+            log.warn("[Chat] Phòng chat đã tồn tại (race condition), trả về phòng cũ: doctorId={}, patientId={}",
+                    request.getDoctorId(), request.getPatientId());
+            return chatRoomRepository
+                    .findByDoctorIdAndPatientId(request.getDoctorId(), request.getPatientId())
+                    .map(r -> toRoomResponse(r, currentUser.getUserId()))
+                    .orElseThrow(() -> new RuntimeException("Không thể tạo hoặc lấy phòng chat."));
+        }
     }
 
     @Override
