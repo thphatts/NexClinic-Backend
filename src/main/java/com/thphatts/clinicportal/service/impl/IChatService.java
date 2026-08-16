@@ -12,12 +12,14 @@ import com.thphatts.clinicportal.entity.ChatRoom;
 import com.thphatts.clinicportal.entity.Doctor;
 import com.thphatts.clinicportal.entity.Patient;
 import com.thphatts.clinicportal.entity.enums.ChatRoomStatus;
+import com.thphatts.clinicportal.entity.User;
 import com.thphatts.clinicportal.repository.ChatMessageRepository;
 import com.thphatts.clinicportal.repository.ChatRoomRepository;
 import com.thphatts.clinicportal.repository.DoctorRepository;
 import com.thphatts.clinicportal.repository.PatientRepository;
 import com.thphatts.clinicportal.repository.UserRepository;
 import com.thphatts.clinicportal.service.ChatService;
+import java.util.Optional;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -235,25 +237,25 @@ public class IChatService implements ChatService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ChatRoomResponse> getMyRooms(UserPrincipal currentUser) {
         String userId = currentUser.getUserId();
         String roleName = currentUser.getRole().name();
 
         List<ChatRoom> rooms;
         if ("ROLE_DOCTOR".equals(roleName)) {
-            Doctor doctor = doctorRepository.findByUserId(userId)
+            Doctor doctor = resolveDoctor(userId)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy hồ sơ bác sĩ."));
             rooms = chatRoomRepository.findByDoctorIdOrderByUpdatedAtDesc(doctor.getId());
         } else if ("ROLE_PATIENT".equals(roleName)) {
-            Patient patient = patientRepository.findByUserId(userId)
+            Patient patient = resolvePatient(userId)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy hồ sơ bệnh nhân."));
             rooms = chatRoomRepository.findByPatientIdOrderByUpdatedAtDesc(patient.getId());
         } else {
             // Admin/Staff: trả về tất cả
             rooms = chatRoomRepository.findAll();
         }
-    return toRoomResponses(rooms, userId);
+        return toRoomResponses(rooms, userId);
     }
 
     @Override
@@ -267,11 +269,61 @@ public class IChatService implements ChatService {
 
     // ─── Private Helpers ──────────────────────────────────────────────────────
 
+    private Optional<Doctor> resolveDoctor(String userId) {
+        Optional<Doctor> doctorOpt = doctorRepository.findByUserId(userId);
+        if (doctorOpt.isPresent()) {
+            return doctorOpt;
+        }
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null) {
+            if (user.getEmail() != null && !user.getEmail().isBlank()) {
+                doctorOpt = doctorRepository.findByEmail(user.getEmail());
+            }
+            if (doctorOpt.isEmpty() && user.getPhoneNumber() != null && !user.getPhoneNumber().isBlank()) {
+                doctorOpt = doctorRepository.findByPhone(user.getPhoneNumber());
+            }
+            if (doctorOpt.isPresent()) {
+                Doctor doctor = doctorOpt.get();
+                if (doctor.getUser() == null) {
+                    doctor.setUser(user);
+                    doctorRepository.save(doctor);
+                }
+            }
+        }
+        return doctorOpt;
+    }
+
+    private Optional<Patient> resolvePatient(String userId) {
+        Optional<Patient> patientOpt = patientRepository.findByUserId(userId);
+        if (patientOpt.isPresent()) {
+            return patientOpt;
+        }
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null) {
+            if (user.getCitizenId() != null && !user.getCitizenId().isBlank()) {
+                patientOpt = patientRepository.findByCitizenId(user.getCitizenId());
+            }
+            if (patientOpt.isEmpty() && user.getEmail() != null && !user.getEmail().isBlank()) {
+                patientOpt = patientRepository.findByEmail(user.getEmail());
+            }
+            if (patientOpt.isEmpty() && user.getPhoneNumber() != null && !user.getPhoneNumber().isBlank()) {
+                patientOpt = patientRepository.findByPhone(user.getPhoneNumber());
+            }
+            if (patientOpt.isPresent()) {
+                Patient patient = patientOpt.get();
+                if (patient.getUserId() == null) {
+                    patient.setUserId(user.getId());
+                    patientRepository.save(patient);
+                }
+            }
+        }
+        return patientOpt;
+    }
+
     private void validateRoomAccess(ChatRoom room, String userId) {
-        // Tìm doctorId và patientId tương ứng với userId
-        boolean isDoctor = doctorRepository.findByUserId(userId)
+        boolean isDoctor = resolveDoctor(userId)
                 .map(d -> d.getId().equals(room.getDoctorId())).orElse(false);
-        boolean isPatient = patientRepository.findByUserId(userId)
+        boolean isPatient = resolvePatient(userId)
                 .map(p -> p.getId().equals(room.getPatientId())).orElse(false);
         boolean isAdmin = userRepository.findById(userId)
                 .map(u -> u.getRole() != null &&
