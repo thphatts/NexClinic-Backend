@@ -31,9 +31,11 @@ public class AiCacheConfig {
     public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
         ObjectMapper redisObjectMapper = new ObjectMapper();
         redisObjectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        redisObjectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         redisObjectMapper.activateDefaultTyping(
                 LaissezFaireSubTypeValidator.instance,
-                ObjectMapper.DefaultTyping.NON_FINAL
+                ObjectMapper.DefaultTyping.EVERYTHING,
+                com.fasterxml.jackson.annotation.JsonTypeInfo.As.PROPERTY
         );
 
         GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(redisObjectMapper);

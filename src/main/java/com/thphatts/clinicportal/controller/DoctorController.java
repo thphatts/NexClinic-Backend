@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,11 +26,13 @@ public class DoctorController extends BaseController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<DoctorResponse> createDoctor(@Valid @RequestBody DoctorRequest request) {
         return createdSuccessResponse(doctorService.createDoctor(request));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<DoctorResponse> updateDoctor(
             @PathVariable Long id,
             @Valid @RequestBody DoctorRequest request
@@ -63,6 +66,7 @@ public class DoctorController extends BaseController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<String> deleteDoctor(@PathVariable Long id) {
         doctorService.deleteDoctor(id);
         return ApiResponse.success("Đã xóa bác sĩ có ID: " + id + " thành công.");
