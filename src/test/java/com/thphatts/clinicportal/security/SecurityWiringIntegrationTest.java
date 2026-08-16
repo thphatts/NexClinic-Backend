@@ -64,6 +64,9 @@ class SecurityWiringIntegrationTest {
     @MockBean
     private DoctorScheduleService doctorScheduleService;
 
+    @MockBean
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+
     private User doctorUser;
     private String jwtToken;
 

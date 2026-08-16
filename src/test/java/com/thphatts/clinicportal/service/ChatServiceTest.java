@@ -497,11 +497,17 @@ class ChatServiceTest {
                     .thenReturn(Optional.of(mockDoctor));
             when(chatRoomRepository.findByDoctorIdOrderByUpdatedAtDesc(1L))
                     .thenReturn(List.of(mockRoom));
-            when(doctorRepository.findById(1L)).thenReturn(Optional.of(mockDoctor));
-            when(patientRepository.findById(2L)).thenReturn(Optional.of(mockPatient));
-            when(chatMessageRepository.findLastMessageByRoomId(10L)).thenReturn(Optional.empty());
-            when(chatMessageRepository.countByRoomIdAndIsReadFalseAndSenderIdNot(10L, "doctor-uuid"))
-                    .thenReturn(3L);
+            when(doctorRepository.findAllById(any())).thenReturn(List.of(mockDoctor));
+            when(patientRepository.findAllById(any())).thenReturn(List.of(mockPatient));
+            when(chatMessageRepository.findLastMessagesByRoomIds(any())).thenReturn(List.of());
+            ChatMessageRepository.UnreadCountProjection projection = new ChatMessageRepository.UnreadCountProjection() {
+                @Override
+                public Long getRoomId() { return 10L; }
+                @Override
+                public Long getUnreadCount() { return 3L; }
+            };
+            when(chatMessageRepository.countUnreadByRoomIds(any(), eq("doctor-uuid")))
+                    .thenReturn(List.of(projection));
 
             List<ChatRoomResponse> result = chatService.getMyRooms(doctorPrincipal);
 
@@ -520,11 +526,11 @@ class ChatServiceTest {
                     .thenReturn(Optional.of(mockPatient));
             when(chatRoomRepository.findByPatientIdOrderByUpdatedAtDesc(2L))
                     .thenReturn(List.of(mockRoom));
-            when(doctorRepository.findById(1L)).thenReturn(Optional.of(mockDoctor));
-            when(patientRepository.findById(2L)).thenReturn(Optional.of(mockPatient));
-            when(chatMessageRepository.findLastMessageByRoomId(10L)).thenReturn(Optional.empty());
-            when(chatMessageRepository.countByRoomIdAndIsReadFalseAndSenderIdNot(10L, "patient-uuid"))
-                    .thenReturn(0L);
+            when(doctorRepository.findAllById(any())).thenReturn(List.of(mockDoctor));
+            when(patientRepository.findAllById(any())).thenReturn(List.of(mockPatient));
+            when(chatMessageRepository.findLastMessagesByRoomIds(any())).thenReturn(List.of());
+            when(chatMessageRepository.countUnreadByRoomIds(any(), eq("patient-uuid")))
+                    .thenReturn(List.of());
 
             List<ChatRoomResponse> result = chatService.getMyRooms(patientPrincipal);
 
@@ -538,11 +544,11 @@ class ChatServiceTest {
         @DisplayName("Admin thấy tất cả phòng chat")
         void getMyRooms_Admin_ReturnsAllRooms() {
             when(chatRoomRepository.findAll()).thenReturn(List.of(mockRoom));
-            when(doctorRepository.findById(1L)).thenReturn(Optional.of(mockDoctor));
-            when(patientRepository.findById(2L)).thenReturn(Optional.of(mockPatient));
-            when(chatMessageRepository.findLastMessageByRoomId(10L)).thenReturn(Optional.empty());
-            when(chatMessageRepository.countByRoomIdAndIsReadFalseAndSenderIdNot(10L, "admin-uuid"))
-                    .thenReturn(0L);
+            when(doctorRepository.findAllById(any())).thenReturn(List.of(mockDoctor));
+            when(patientRepository.findAllById(any())).thenReturn(List.of(mockPatient));
+            when(chatMessageRepository.findLastMessagesByRoomIds(any())).thenReturn(List.of());
+            when(chatMessageRepository.countUnreadByRoomIds(any(), eq("admin-uuid")))
+                    .thenReturn(List.of());
 
             List<ChatRoomResponse> result = chatService.getMyRooms(adminPrincipal);
 
