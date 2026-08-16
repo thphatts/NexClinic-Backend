@@ -79,10 +79,10 @@ public class SecurityConfig {
                                 "/api/v1/payments/vnpay-return",
                                 "/api/v1/payments/vnpay-ipn"
                                 ).permitAll()
-                        // Chỉ cho phép GET công khai với 2 endpoint đọc lịch làm việc
+                        // Cho phép GET công khai với xem danh sách / chi tiết bác sĩ & lịch làm việc
                         .requestMatchers(HttpMethod.GET,
-                                "/api/v1/doctors/*/schedules",
-                                "/api/v1/doctors/*/schedules/available-slots"
+                                "/api/v1/doctors",
+                                "/api/v1/doctors/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );

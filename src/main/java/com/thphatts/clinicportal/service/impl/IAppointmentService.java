@@ -45,8 +45,12 @@ public class IAppointmentService implements AppointmentService {
                 request.doctorId(), request.appointmentDate(), request.timeSlot(), AppointmentStatus.CANCELLED
         );
 
+        String doctorName = (doctor.getFullName() != null && doctor.getFullName().startsWith("Bác sĩ"))
+                ? doctor.getFullName()
+                : "Bác sĩ " + doctor.getFullName();
+
         if (isConflict) {
-            throw new RuntimeException("Bác sĩ " + doctor.getFullName() + " đã có lịch hẹn khác vào khung giờ "
+            throw new RuntimeException(doctorName + " đã có lịch hẹn khác vào khung giờ "
                     + request.timeSlot() + " ngày " + request.appointmentDate() + ". Vui lòng chọn khung giờ khác!");
         }
 
@@ -54,13 +58,14 @@ public class IAppointmentService implements AppointmentService {
         appointment.setPatient(patient);
         appointment.setDoctor(doctor);
         appointment.setStatus(AppointmentStatus.PENDING);
+        appointment.setAmount(doctor.getConsultationFee());
 
         try {
             // Dùng saveAndFlush để đẩy INSERT SQL xuống DB ngay lập tức nhằm bắt lỗi Unique Partial Index Constraint nếu xảy ra Race Condition
             Appointment savedAppointment = appointmentRepository.saveAndFlush(appointment);
             return appointmentMapper.toResponse(savedAppointment);
         } catch (DataIntegrityViolationException ex) {
-            throw new RuntimeException("Bác sĩ " + doctor.getFullName() + " vừa có lịch hẹn mới được đăng ký vào khung giờ "
+            throw new RuntimeException(doctorName + " vừa có lịch hẹn mới được đăng ký vào khung giờ "
                     + request.timeSlot() + " ngày " + request.appointmentDate() + ". Vui lòng chọn khung giờ khác!", ex);
         }
     }

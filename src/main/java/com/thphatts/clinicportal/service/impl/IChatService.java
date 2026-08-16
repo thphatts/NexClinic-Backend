@@ -11,7 +11,6 @@ import com.thphatts.clinicportal.entity.ChatMessage;
 import com.thphatts.clinicportal.entity.ChatRoom;
 import com.thphatts.clinicportal.entity.Doctor;
 import com.thphatts.clinicportal.entity.Patient;
-import com.thphatts.clinicportal.entity.User;
 import com.thphatts.clinicportal.entity.enums.ChatRoomStatus;
 import com.thphatts.clinicportal.repository.ChatMessageRepository;
 import com.thphatts.clinicportal.repository.ChatRoomRepository;
@@ -36,14 +35,14 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.springframework.dao.DataIntegrityViolationException;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class IChatService implements ChatService {
 
     private final ChatRoomRepository chatRoomRepository;
@@ -54,6 +53,25 @@ public class IChatService implements ChatService {
     private final SimpMessagingTemplate messagingTemplate;
     private final DataSource dataSource;
     private final ObjectMapper objectMapper;
+
+    public IChatService(
+            ChatRoomRepository chatRoomRepository,
+            ChatMessageRepository chatMessageRepository,
+            UserRepository userRepository,
+            DoctorRepository doctorRepository,
+            PatientRepository patientRepository,
+            SimpMessagingTemplate messagingTemplate,
+            DataSource dataSource,
+            ObjectMapper objectMapper) {
+        this.chatRoomRepository = chatRoomRepository;
+        this.chatMessageRepository = chatMessageRepository;
+        this.userRepository = userRepository;
+        this.doctorRepository = doctorRepository;
+        this.patientRepository = patientRepository;
+        this.messagingTemplate = messagingTemplate;
+        this.dataSource = dataSource;
+        this.objectMapper = objectMapper;
+    }
 
     private final AtomicBoolean listenerRunning = new AtomicBoolean(false);
     private final ExecutorService listenerExecutor = Executors.newSingleThreadExecutor(r -> {
@@ -140,31 +158,21 @@ public class IChatService implements ChatService {
     @Override
     @Transactional
     public ChatRoomResponse getOrCreateRoom(CreateChatRoomRequest request, UserPrincipal currentUser) {
-        // Nếu đã có phòng giữa bác sĩ và bệnh nhân này → trả về phòng cũ
-        try {
-            ChatRoom room = chatRoomRepository
-                    .findByDoctorIdAndPatientId(request.getDoctorId(), request.getPatientId())
-                    .orElseGet(() -> {
-                        ChatRoom newRoom = ChatRoom.builder()
-                                .doctorId(request.getDoctorId())
-                                .patientId(request.getPatientId())
-                                .appointmentId(request.getAppointmentId())
-                                .status(ChatRoomStatus.ACTIVE)
-                                .build();
-                        return chatRoomRepository.save(newRoom);
-                    });
-            return toRoomResponse(room, currentUser.getUserId());
-        } catch (DataIntegrityViolationException e) {
-            // Race condition: phòng đã được tạo đồng thời bởi request khác → trả về phòng đó
-            log.warn("[Chat] Phòng chat đã tồn tại (race condition), trả về phòng cũ: doctorId={}, patientId={}",
-                    request.getDoctorId(), request.getPatientId());
-            return chatRoomRepository
-                    .findByDoctorIdAndPatientId(request.getDoctorId(), request.getPatientId())
-                    .map(r -> toRoomResponse(r, currentUser.getUserId()))
-                    .orElseThrow(() -> new RuntimeException("Không thể tạo hoặc lấy phòng chat."));
-        }
-    }
+        ChatRoom room = chatRoomRepository
+                .findByDoctorIdAndPatientId(request.getDoctorId(), request.getPatientId())
+                .orElseGet(() -> {
+                    ChatRoom newRoom = ChatRoom.builder()
+                            .doctorId(request.getDoctorId())
+                            .patientId(request.getPatientId())
+                            .appointmentId(request.getAppointmentId())
+                            .status(ChatRoomStatus.ACTIVE)
+                            .build();
+                    return chatRoomRepository.save(newRoom);
+                });
 
+        // Dùng lại đúng hàm batch, chỉ với list 1 phần tử — không viết code trùng
+        return toRoomResponses(List.of(room), currentUser.getUserId()).get(0);
+    }
     @Override
     @Transactional
     public ChatMessageResponse sendMessage(SendMessageRequest request, UserPrincipal currentUser) {
@@ -245,8 +253,7 @@ public class IChatService implements ChatService {
             // Admin/Staff: trả về tất cả
             rooms = chatRoomRepository.findAll();
         }
-
-        return rooms.stream().map(r -> toRoomResponse(r, userId)).toList();
+    return toRoomResponses(rooms, userId);
     }
 
     @Override
@@ -296,38 +303,37 @@ public class IChatService implements ChatService {
                 .build();
     }
 
-    private ChatRoomResponse toRoomResponse(ChatRoom room, String currentUserId) {
-        // Lấy tên bác sĩ
-        String doctorName = doctorRepository.findById(room.getDoctorId())
-                .map(Doctor::getFullName).orElse("Bác sĩ");
+    private List<ChatRoomResponse> toRoomResponses(List<ChatRoom> rooms, String currentUserId) {
+        if (rooms.isEmpty()) {
+            return List.of();
+        }
+        List<Long> doctorIds = rooms.stream().map(ChatRoom::getDoctorId).distinct().toList();
+        List<Long> patientIds = rooms.stream().map(ChatRoom::getPatientId).distinct().toList();
+        List<Long> roomIds = rooms.stream().map(ChatRoom::getId).toList();
 
-        // Lấy tên bệnh nhân
-        String patientName = patientRepository.findById(room.getPatientId())
-                .map(Patient::getFullName).orElse("Bệnh nhân");
+        Map<Long, String> doctorNames = doctorRepository.findAllById(doctorIds).stream().collect(Collectors.toMap(Doctor::getId, Doctor::getFullName));
+        Map<Long, String> patientNames = patientRepository.findAllById(patientIds).stream().collect(Collectors.toMap(Patient::getId,Patient::getFullName));
+        Map<Long, ChatMessage> lastMessageByRoom = chatMessageRepository.findLastMessagesByRoomIds(roomIds).stream().collect(Collectors.toMap(ChatMessage::getRoomId, m -> m));
+        Map<Long, Long> unreadCountByRoom = chatMessageRepository.countUnreadByRoomIds(roomIds, currentUserId).stream().collect(Collectors.toMap(ChatMessageRepository.UnreadCountProjection::getRoomId,ChatMessageRepository.UnreadCountProjection::getUnreadCount));
 
-        // Tin nhắn cuối cùng
-        String lastMessage = chatMessageRepository.findLastMessageByRoomId(room.getId())
-                .map(ChatMessage::getContent).orElse(null);
+        return rooms.stream().map( room -> {
+            ChatMessage lastMessage = lastMessageByRoom.get(room.getId());
+            return ChatRoomResponse.builder()
+                    .id(room.getId())
+                    .appointmentId(room.getAppointmentId())
+                    .doctorId(room.getDoctorId())
+                    .doctorName(doctorNames.getOrDefault(room.getDoctorId(), "Bác sĩ"))
+                    .patientId(room.getPatientId())
+                    .patientName(patientNames.getOrDefault(room.getPatientId(), "Bệnh nhân"))
+                    .status(room.getStatus().name())
+                    .lastMessage(lastMessage != null ? lastMessage.getContent() : null)
+                    .lastMessageAt(lastMessage != null ? lastMessage.getCreatedAt() : null)
+                    .unreadCount(unreadCountByRoom.getOrDefault(room.getId(), 0L))
+                    .createdAt(room.getCreatedAt())
+                    .updatedAt(room.getUpdatedAt())
+                    .build();
+                })
+                .toList();
+        }
 
-        LocalDateTime lastMessageAt = chatMessageRepository.findLastMessageByRoomId(room.getId())
-                .map(ChatMessage::getCreatedAt).orElse(null);
-
-        // Số tin nhắn chưa đọc
-        long unread = chatMessageRepository.countByRoomIdAndIsReadFalseAndSenderIdNot(room.getId(), currentUserId);
-
-        return ChatRoomResponse.builder()
-                .id(room.getId())
-                .appointmentId(room.getAppointmentId())
-                .doctorId(room.getDoctorId())
-                .doctorName(doctorName)
-                .patientId(room.getPatientId())
-                .patientName(patientName)
-                .status(room.getStatus().name())
-                .lastMessage(lastMessage)
-                .lastMessageAt(lastMessageAt)
-                .unreadCount(unread)
-                .createdAt(room.getCreatedAt())
-                .updatedAt(room.getUpdatedAt())
-                .build();
     }
-}

@@ -1,14 +1,20 @@
 package com.thphatts.clinicportal.config.ai;
 
-import org.springframework.cache.CacheManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import java.time.Duration;
 import java.util.concurrent.Executor;
 
 @Configuration
@@ -17,11 +23,31 @@ import java.util.concurrent.Executor;
 @EnableScheduling
 public class AiCacheConfig {
 
+    /**
+     * Serializer riêng cho cache value: dùng Jackson để lưu object dạng JSON trong Redis
+     * thay vì Java native serialization (chậm hơn, không đọc được từ bên ngoài để debug).
+     */
     @Bean
-    public CacheManager cacheManager() {
-        // aiClinicContext: Cache RAG context cũ (giữ compat)
-        // clinicKnowledgeEmbeddings: Cache kết quả embedding vector (tránh gọi lại Gemini API)
-        return new ConcurrentMapCacheManager("aiClinicContext", "doctors", "products", "clinicKnowledgeEmbeddings");
+    public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
+        ObjectMapper redisObjectMapper = new ObjectMapper();
+        redisObjectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        redisObjectMapper.activateDefaultTyping(
+                LaissezFaireSubTypeValidator.instance,
+                ObjectMapper.DefaultTyping.NON_FINAL
+        );
+
+        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(redisObjectMapper);
+
+        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(10))
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
+                .disableCachingNullValues(); // KHÔNG cache null → tránh cache "not found" mãi mãi
+
+        return builder -> builder
+                .withCacheConfiguration("doctors", defaultConfig.entryTtl(Duration.ofMinutes(15)))
+                .withCacheConfiguration("aiClinicContext", defaultConfig.entryTtl(Duration.ofMinutes(30)))
+                .withCacheConfiguration("clinicKnowledgeEmbeddings", defaultConfig.entryTtl(Duration.ofHours(6)));
     }
 
     @Bean(name = "aiAsyncExecutor")

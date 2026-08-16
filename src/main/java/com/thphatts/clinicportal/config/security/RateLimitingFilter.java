@@ -6,33 +6,27 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.time.Duration;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class RateLimitingFilter extends OncePerRequestFilter {
 
-    private static final int MAX_REQUESTS_PER_MINUTE = 15;
-    private final Map<String, RequestTracker> ipTrackerMap = new ConcurrentHashMap<>();
+    private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private static class RequestTracker {
-        long startTimeMs;
-        int count;
-
-        RequestTracker(long startTimeMs) {
-            this.startTimeMs = startTimeMs;
-            this.count = 1;
-        }
-    }
+    private static final int MAX_REQUESTS_PER_MINUTE = 15;
+    private static final String KEY_PREFIX = "ratelimit:login:";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -41,18 +35,19 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         if (path.endsWith("/auth/login") || path.endsWith("/auth/register")) {
             String clientIp = getClientIp(request);
-            long now = System.currentTimeMillis();
+            String key = KEY_PREFIX + clientIp;
 
-            RequestTracker tracker = ipTrackerMap.compute(clientIp, (ip, tr) -> {
-                if (tr == null || (now - tr.startTimeMs) > 60000) {
-                    return new RequestTracker(now);
-                } else {
-                    tr.count++;
-                    return tr;
-                }
-            });
+            // INCR là atomic ở tầng Redis — an toàn dù nhiều instance Render
+            // cùng gọi song song, không cần đồng bộ hoá thủ công như ConcurrentHashMap cũ.
+            Long count = redisTemplate.opsForValue().increment(key);
 
-            if (tracker.count > MAX_REQUESTS_PER_MINUTE) {
+            // Chỉ set TTL ở lần tăng ĐẦU TIÊN trong cửa sổ 1 phút,
+            // tránh mỗi request lại reset lại đồng hồ đếm ngược.
+            if (count != null && count == 1L) {
+                redisTemplate.expire(key, Duration.ofMinutes(1));
+            }
+
+            if (count != null && count > MAX_REQUESTS_PER_MINUTE) {
                 log.warn("Rate limit exceeded for IP: {} on path: {}", clientIp, path);
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);

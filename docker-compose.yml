@@ -27,6 +27,15 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     restart: always
+
+  # Cấu hình cho Redis
+  redis:
+    image: redis:7-alpine
+    container_name: redis_container
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    restart: always
+
   # Cấu hình cho Spring Boot Application
   app:
     build:

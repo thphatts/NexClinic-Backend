@@ -27,4 +27,4 @@ CREATE TABLE IF NOT EXISTS doctor_leaves (
     CONSTRAINT uq_doctor_leave_date UNIQUE (doctor_id, leave_date)
 );
 
-CREATE INDEX IF NOT EXISTS idx_do   ctor_leaves_doctor_date ON doctor_leaves(doctor_id, leave_date);
+CREATE INDEX IF NOT EXISTS idx_doctor_leaves_doctor_date ON doctor_leaves(doctor_id, leave_date);

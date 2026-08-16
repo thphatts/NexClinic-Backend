@@ -10,6 +10,8 @@ import com.thphatts.clinicportal.repository.DoctorRepository;
 import com.thphatts.clinicportal.repository.UserRepository;
 import com.thphatts.clinicportal.service.DoctorService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -49,6 +51,7 @@ public class IDoctorService implements DoctorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "doctors", key = "#id")
     public DoctorResponse updateDoctor(Long id, DoctorRequest request) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bác sĩ với ID: " + id));
@@ -74,6 +77,7 @@ public class IDoctorService implements DoctorService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "doctors", key = "#id")
     public DoctorResponse getDoctorById(Long id) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bác sĩ với ID: " + id));
@@ -115,6 +119,7 @@ public class IDoctorService implements DoctorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "doctors", key = "#id")
     public void deleteDoctor(Long id) {
         if (!doctorRepository.existsById(id)) {
             throw new RuntimeException("Không tìm thấy bác sĩ với ID: " + id);

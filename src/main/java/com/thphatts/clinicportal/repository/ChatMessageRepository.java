@@ -10,9 +10,17 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
+
+    Optional<ChatMessage> findFirstByRoomIdOrderByCreatedAtDesc(Long roomId);
+
+    default Optional<ChatMessage> findLastMessageByRoomId(Long roomId) {
+        return findFirstByRoomIdOrderByCreatedAtDesc(roomId);
+    }
 
     Page<ChatMessage> findByRoomIdOrderByCreatedAtAsc(Long roomId, Pageable pageable);
 
@@ -25,6 +33,18 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
                       @Param("senderId") String senderId,
                       @Param("readAt") LocalDateTime readAt);
 
-    @Query("SELECT m FROM ChatMessage m WHERE m.roomId = :roomId ORDER BY m.createdAt DESC LIMIT 1")
-    java.util.Optional<ChatMessage> findLastMessageByRoomId(@Param("roomId") Long roomId);
+    @Query(value = "SELECT DISTINCT ON (room_id) * FROM clinic_chat_messages " + "WHERE room_id IN (:roomIds) ORDER BY room_id, created_at DESC", nativeQuery = true)
+    List<ChatMessage> findLastMessagesByRoomIds(@Param("roomIds") List<Long> roomIds);
+
+
+    @Query("SELECT m.roomId as roomId, COUNT(m) as unreadCount FROM ChatMessage m "
+            + "WHERE m.roomId IN :roomIds AND m.isRead = false AND m.senderId <> :senderId "
+            + "GROUP BY m.roomId")
+    List<UnreadCountProjection> countUnreadByRoomIds(
+            @Param("roomIds") List<Long> roomIds, @Param("senderId") String senderId);
+
+    interface UnreadCountProjection {
+        Long getRoomId();
+        Long getUnreadCount();
+    }
 }
