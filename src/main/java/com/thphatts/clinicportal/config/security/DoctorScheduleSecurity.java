@@ -1,7 +1,7 @@
 package com.thphatts.clinicportal.config.security;
 
-import com.thphatts.clinicportal.entity.enums.Role;
-import com.thphatts.clinicportal.repository.DoctorRepository;
+import com.thphatts.clinicportal.modules.user.entity.enums.Role;
+import com.thphatts.clinicportal.modules.doctor.repository.DoctorRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

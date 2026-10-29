@@ -1,11 +1,11 @@
 package com.thphatts.clinicportal.config;
 
-import com.thphatts.clinicportal.entity.Checkup;
-import com.thphatts.clinicportal.entity.Patient;
-import com.thphatts.clinicportal.entity.enums.Role;
-import com.thphatts.clinicportal.entity.User;
-import com.thphatts.clinicportal.repository.PatientRepository;
-import com.thphatts.clinicportal.repository.UserRepository;
+import com.thphatts.clinicportal.modules.appointment.entity.Checkup;
+import com.thphatts.clinicportal.modules.patient.entity.Patient;
+import com.thphatts.clinicportal.modules.user.entity.enums.Role;
+import com.thphatts.clinicportal.modules.user.entity.User;
+import com.thphatts.clinicportal.modules.patient.repository.PatientRepository;
+import com.thphatts.clinicportal.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;

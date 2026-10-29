@@ -1,0 +1,73 @@
+package com.thphatts.clinicportal.modules.user.service.impl;
+
+import com.thphatts.clinicportal.modules.user.dto.UserRequest;
+import com.thphatts.clinicportal.modules.user.dto.UserResponse;
+import com.thphatts.clinicportal.modules.user.entity.User;
+import com.thphatts.clinicportal.modules.user.mapper.UserMapper;
+import com.thphatts.clinicportal.modules.user.repository.UserRepository;
+import com.thphatts.clinicportal.modules.user.service.UserService;
+import lombok.RequiredArgsConstructor;
+import com.thphatts.clinicportal.modules.user.entity.enums.Role;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl implements UserService {
+
+    private final UserRepository userRepository;
+    private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
+
+    @Override
+    public void create(UserRequest rq) {
+        User user = mapToEntity(rq);
+        user.setPassword(passwordEncoder.encode(rq.password()));
+        if (rq.role() != null) {
+            user.setRole(rq.role());
+        } else {
+            user.setRole(Role.ROLE_PATIENT);
+        }
+        userRepository.save(user);
+    }
+
+    @Override
+    public void update(String id, UserRequest rq) {
+        Optional<User> user = userRepository.findById(id);
+        if (user.isEmpty()) {
+            throw new RuntimeException("User not exits!");
+        }
+        User userUpdate = user.get();
+        userUpdate.setName(rq.name());
+        userUpdate.setEmail(rq.email());
+        userUpdate.setPassword(rq.password());
+        userUpdate.setUsername(rq.username());
+        userRepository.save(userUpdate);
+    }
+
+    @Override
+    public List<UserResponse> index() {
+        List<User> list = userRepository.findAll();
+        return list.stream().map(this::mapToResponse).toList();
+    }
+
+    @Override
+    public void delete(String id) {
+        Optional<User> user = userRepository.findById(id);
+        if (user.isEmpty()) {
+            throw new RuntimeException("User not exits!");
+        }
+        userRepository.delete(user.get());
+    }
+
+    private UserResponse mapToResponse(User user) {
+        return userMapper.toResponse(user);
+    }
+
+    private User mapToEntity(UserRequest request) {
+        return userMapper.toEntity(request);
+    }
+}

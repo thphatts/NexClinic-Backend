@@ -1,6 +1,6 @@
 package com.thphatts.clinicportal.config.security;
 
-import com.thphatts.clinicportal.entity.User;
+import com.thphatts.clinicportal.modules.user.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;

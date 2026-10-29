@@ -1,12 +1,12 @@
 package com.thphatts.clinicportal.config.security;
 
-import com.thphatts.clinicportal.entity.MedicalRecord;
-import com.thphatts.clinicportal.entity.Patient;
-import com.thphatts.clinicportal.entity.enums.Role;
-import com.thphatts.clinicportal.repository.AppointmentRepository;
-import com.thphatts.clinicportal.repository.DoctorRepository;
-import com.thphatts.clinicportal.repository.MedicalRecordRepository;
-import com.thphatts.clinicportal.repository.PatientRepository;
+import com.thphatts.clinicportal.modules.patient.entity.MedicalRecord;
+import com.thphatts.clinicportal.modules.patient.entity.Patient;
+import com.thphatts.clinicportal.modules.user.entity.enums.Role;
+import com.thphatts.clinicportal.modules.appointment.repository.AppointmentRepository;
+import com.thphatts.clinicportal.modules.doctor.repository.DoctorRepository;
+import com.thphatts.clinicportal.modules.patient.repository.MedicalRecordRepository;
+import com.thphatts.clinicportal.modules.patient.repository.PatientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

@@ -1,17 +1,17 @@
 package com.thphatts.clinicportal.security;
 
-import com.thphatts.clinicportal.controller.DoctorScheduleController;
-import com.thphatts.clinicportal.controller.MedicalRecordController;
+import com.thphatts.clinicportal.modules.doctor.controller.DoctorScheduleController;
+import com.thphatts.clinicportal.modules.patient.controller.MedicalRecordController;
 import com.thphatts.clinicportal.config.security.CustomUserDetailsService;
 import com.thphatts.clinicportal.config.security.JwtAuthenticationFilter;
 import com.thphatts.clinicportal.config.security.JwtTokenProvider;
 import com.thphatts.clinicportal.config.security.SecurityConfig;
 import com.thphatts.clinicportal.config.security.UserPrincipal;
-import com.thphatts.clinicportal.entity.User;
-import com.thphatts.clinicportal.entity.enums.Role;
-import com.thphatts.clinicportal.repository.UserRepository;
-import com.thphatts.clinicportal.service.DoctorScheduleService;
-import com.thphatts.clinicportal.service.MedicalRecordService;
+import com.thphatts.clinicportal.modules.user.entity.User;
+import com.thphatts.clinicportal.modules.user.entity.enums.Role;
+import com.thphatts.clinicportal.modules.user.repository.UserRepository;
+import com.thphatts.clinicportal.modules.doctor.service.DoctorScheduleService;
+import com.thphatts.clinicportal.modules.patient.service.MedicalRecordService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,7 @@
 package com.thphatts.clinicportal.config.security;
 
-import com.thphatts.clinicportal.entity.User;
-import com.thphatts.clinicportal.repository.UserRepository;
+import com.thphatts.clinicportal.modules.user.entity.User;
+import com.thphatts.clinicportal.modules.user.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

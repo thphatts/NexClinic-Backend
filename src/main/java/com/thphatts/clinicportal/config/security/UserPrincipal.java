@@ -1,7 +1,7 @@
 package com.thphatts.clinicportal.config.security;
 
-import com.thphatts.clinicportal.entity.User;
-import com.thphatts.clinicportal.entity.enums.Role;
+import com.thphatts.clinicportal.modules.user.entity.User;
+import com.thphatts.clinicportal.modules.user.entity.enums.Role;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
