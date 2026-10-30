@@ -11,13 +11,26 @@ import com.thphatts.clinicportal.modules.patient.entity.MedicalRecord;
 import com.thphatts.clinicportal.modules.patient.entity.Patient;
 import com.thphatts.clinicportal.modules.patient.entity.Prescription;
 import com.thphatts.clinicportal.modules.patient.entity.PrescriptionItem;
+import com.thphatts.clinicportal.modules.patient.entity.Visit;
+import com.thphatts.clinicportal.modules.patient.entity.Encounter;
+import com.thphatts.clinicportal.modules.patient.entity.Obs;
+import com.thphatts.clinicportal.modules.patient.entity.enums.EncounterType;
+import com.thphatts.clinicportal.modules.patient.entity.enums.VisitStatus;
+import com.thphatts.clinicportal.modules.patient.dto.ObsRequest;
 import com.thphatts.clinicportal.modules.doctor.entity.Doctor;
+import com.thphatts.clinicportal.modules.concept.entity.Concept;
+import com.thphatts.clinicportal.modules.concept.enums.DataType;
+import com.thphatts.clinicportal.modules.concept.enums.ConceptClass;
+import com.thphatts.clinicportal.modules.concept.repository.ConceptRepository;
 import com.thphatts.clinicportal.modules.product.entity.Product;
 import com.thphatts.clinicportal.modules.appointment.entity.enums.AppointmentStatus;
 import com.thphatts.clinicportal.modules.patient.mapper.MedicalRecordMapper;
 import com.thphatts.clinicportal.modules.product.repository.ProductRepository;
 import com.thphatts.clinicportal.modules.appointment.repository.AppointmentRepository;
 import com.thphatts.clinicportal.modules.patient.repository.MedicalRecordRepository;
+import com.thphatts.clinicportal.modules.patient.repository.ObsRepository;
+import com.thphatts.clinicportal.modules.patient.repository.VisitRepository;
+import com.thphatts.clinicportal.modules.patient.repository.EncounterRepository;
 import com.thphatts.clinicportal.modules.patient.service.MedicalRecordService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +52,10 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
     private final ProductRepository productRepository;
     private final MedicalRecordMapper medicalRecordMapper;
     private final MedicalRecordSecurity medicalRecordSecurity;
+    private final VisitRepository visitRepository;
+    private final EncounterRepository encounterRepository;
+    private final ObsRepository obsRepository;
+    private final ConceptRepository conceptRepository;
 
     @Override
     @Transactional
@@ -100,7 +118,94 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
         appointmentRepository.save(appointment);
 
         MedicalRecord savedRecord = medicalRecordRepository.save(medicalRecord);
+
+        LocalDateTime encounterTime = savedRecord.getCreatedAt() != null
+                ? savedRecord.getCreatedAt()
+                : LocalDateTime.now();
+        Visit visit = visitRepository.save(Visit.builder()
+                .patient(savedRecord.getPatient())
+                .startTime(encounterTime)
+                .endTime(encounterTime)
+                .status(VisitStatus.CLOSED)
+                .build());
+        Encounter encounter = encounterRepository.save(Encounter.builder()
+                .visit(visit)
+                .patient(savedRecord.getPatient())
+                .doctor(savedRecord.getDoctor())
+                .encounterType(EncounterType.CONSULTATION)
+                .encounterDatetime(encounterTime)
+                .build());
+
+        List<Obs> observations = new ArrayList<>();
+        addLegacyTextObservation(observations, encounter, savedRecord.getPatient(), "Clinical diagnosis", ConceptClass.DIAGNOSIS, savedRecord.getDiagnosis());
+        addLegacyTextObservation(observations, encounter, savedRecord.getPatient(), "Symptoms", ConceptClass.SYMPTOM, savedRecord.getSymptoms());
+        addLegacyTextObservation(observations, encounter, savedRecord.getPatient(), "Clinical notes", ConceptClass.DIAGNOSIS, savedRecord.getNotes());
+        if (request.observations() != null) {
+            request.observations().stream()
+                    .map(obsRequest -> toObservation(obsRequest, encounter, savedRecord.getPatient()))
+                    .forEach(observations::add);
+        }
+        obsRepository.saveAll(observations);
+
         return medicalRecordMapper.toResponse(savedRecord);
+    }
+
+    private void addLegacyTextObservation(
+            List<Obs> observations,
+            Encounter encounter,
+            Patient patient,
+            String conceptName,
+            ConceptClass conceptClass,
+            String value
+    ) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        Concept concept = conceptRepository.findFirstByNameAndDatatypeAndConceptClass(
+                        conceptName, DataType.TEXT, conceptClass
+                )
+                .orElseThrow(() -> new IllegalStateException("Thiếu concept mặc định: " + conceptName));
+        observations.add(Obs.builder()
+                .encounter(encounter)
+                .person(patient)
+                .concept(concept)
+                .valueText(value)
+                .build());
+    }
+
+    private Obs toObservation(ObsRequest request, Encounter encounter, Patient patient) {
+        Concept concept = conceptRepository.findById(request.conceptId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy concept với ID: " + request.conceptId()));
+
+        int valueCount = (request.valueNumeric() != null ? 1 : 0)
+                + (request.valueText() != null ? 1 : 0)
+                + (request.valueCodedId() != null ? 1 : 0)
+                + (request.valueDatetime() != null ? 1 : 0)
+                + (request.valueBoolean() != null ? 1 : 0);
+        if (valueCount != 1) {
+            throw new IllegalArgumentException("Mỗi Obs phải có đúng một giá trị");
+        }
+
+        Obs.ObsBuilder obs = Obs.builder()
+                .encounter(encounter)
+                .person(patient)
+                .concept(concept);
+        if (request.valueDatetime() != null) {
+            obs.valueDatetime(request.valueDatetime());
+        } else if (request.valueNumeric() != null && concept.getDatatype() == DataType.NUMERIC) {
+            obs.valueNumeric(request.valueNumeric());
+        } else if (request.valueText() != null && concept.getDatatype() == DataType.TEXT) {
+            obs.valueText(request.valueText());
+        } else if (request.valueCodedId() != null && concept.getDatatype() == DataType.CODED) {
+            Concept codedValue = conceptRepository.findById(request.valueCodedId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy concept đáp án với ID: " + request.valueCodedId()));
+            obs.valueCoded(codedValue);
+        } else if (request.valueBoolean() != null && concept.getDatatype() == DataType.BOOLEAN) {
+            obs.valueBoolean(request.valueBoolean());
+        } else {
+            throw new IllegalArgumentException("Kiểu giá trị Obs không khớp datatype của concept " + concept.getId());
+        }
+        return obs.build();
     }
 
     @Override
