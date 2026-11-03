@@ -1,18 +1,33 @@
 package com.thphatts.clinicportal.modules.user.mapper;
 
+import com.thphatts.clinicportal.modules.person.entity.Person;
 import com.thphatts.clinicportal.modules.user.dto.UserRequest;
 import com.thphatts.clinicportal.modules.user.dto.UserResponse;
 import com.thphatts.clinicportal.modules.user.entity.User;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingConstants;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
-public interface UserMapper {
-    @Mapping(source = "phoneNumber", target = "phone")
-    UserResponse toResponse(User user);
+@Component
+public class UserMapper {
+    public UserResponse toResponse(User user) {
+        Person person = user.getPerson();
+        return new UserResponse(user.getId(), person == null ? null : person.getFullName(),
+                person == null ? null : person.getPhoneNumber(), user.getEmail(), user.getUsername(),
+                person == null ? null : person.getAddress(), person == null ? null : person.getCitizenId());
+    }
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(source = "phone", target = "phoneNumber")
-    User toEntity(UserRequest request);
+    public User toEntity(UserRequest request) {
+        Person person = new Person();
+        person.setFullName(request.name());
+        person.setPhoneNumber(request.phone());
+        person.setEmail(request.email());
+        person.setAddress(request.address());
+        person.setCitizenId(request.citizenId());
+        User user = new User();
+        user.setPerson(person);
+        user.setUsername(request.username());
+        user.setEmail(request.email());
+        user.setPassword(request.password());
+        user.setRole(request.role());
+        return user;
+    }
 }

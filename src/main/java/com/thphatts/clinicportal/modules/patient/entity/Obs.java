@@ -1,6 +1,7 @@
 package com.thphatts.clinicportal.modules.patient.entity;
 
 import com.thphatts.clinicportal.modules.concept.entity.Concept;
+import com.thphatts.clinicportal.modules.person.entity.Person;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -25,7 +26,7 @@ public class Obs {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "person_id", nullable = false)
-    private Patient person;
+    private Person person;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "concept_id", nullable = false)

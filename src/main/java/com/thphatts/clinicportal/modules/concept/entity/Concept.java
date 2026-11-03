@@ -32,4 +32,6 @@ public class Concept {
     @Enumerated(EnumType.STRING)
     @Column(name = "concept_class", nullable = false, length = 20)
     private ConceptClass conceptClass;
+
+    private String unit;
 }

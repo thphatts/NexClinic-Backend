@@ -310,11 +310,7 @@ public class ChatServiceImpl implements ChatService {
                 patientOpt = patientRepository.findByPhone(user.getPhoneNumber());
             }
             if (patientOpt.isPresent()) {
-                Patient patient = patientOpt.get();
-                if (patient.getUserId() == null) {
-                    patient.setUserId(user.getId());
-                    patientRepository.save(patient);
-                }
+                return patientOpt;
             }
         }
         return patientOpt;
@@ -337,7 +333,8 @@ public class ChatServiceImpl implements ChatService {
 
     private String resolveSenderName(String userId) {
         return userRepository.findById(userId)
-                .map(u -> u.getName() != null && !u.getName().isBlank() ? u.getName() : u.getUsername())
+                .map(u -> u.getPerson() != null && u.getPerson().getFullName() != null
+                        && !u.getPerson().getFullName().isBlank() ? u.getPerson().getFullName() : u.getUsername())
                 .orElse("Người dùng");
     }
 

@@ -17,7 +17,6 @@ import com.thphatts.clinicportal.modules.patient.entity.Obs;
 import com.thphatts.clinicportal.modules.patient.entity.enums.EncounterType;
 import com.thphatts.clinicportal.modules.patient.entity.enums.VisitStatus;
 import com.thphatts.clinicportal.modules.patient.dto.ObsRequest;
-import com.thphatts.clinicportal.modules.doctor.entity.Doctor;
 import com.thphatts.clinicportal.modules.concept.entity.Concept;
 import com.thphatts.clinicportal.modules.concept.enums.DataType;
 import com.thphatts.clinicportal.modules.concept.enums.ConceptClass;
@@ -78,7 +77,8 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
                 .build();
 
         // Xử lý kê đơn thuốc nếu có truyền danh sách thuốc
-        if (request.prescription() != null && request.prescription().items() != null && !request.prescription().items().isEmpty()) {
+        if (request.prescription() != null && request.prescription().items() != null
+                && !request.prescription().items().isEmpty()) {
             Prescription prescription = Prescription.builder()
                     .medicalRecord(medicalRecord)
                     .notes(request.prescription().notes())
@@ -89,7 +89,8 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
 
             for (PrescriptionItemRequest itemReq : request.prescription().items()) {
                 Product product = productRepository.findById(itemReq.productId())
-                        .orElseThrow(() -> new RuntimeException("Không tìm thấy thuốc/sản phẩm với ID: " + itemReq.productId()));
+                        .orElseThrow(() -> new RuntimeException(
+                                "Không tìm thấy thuốc/sản phẩm với ID: " + itemReq.productId()));
 
                 BigDecimal unitPrice = product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
                 BigDecimal totalPrice = unitPrice.multiply(BigDecimal.valueOf(itemReq.quantity()));
@@ -137,9 +138,12 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
                 .build());
 
         List<Obs> observations = new ArrayList<>();
-        addLegacyTextObservation(observations, encounter, savedRecord.getPatient(), "Clinical diagnosis", ConceptClass.DIAGNOSIS, savedRecord.getDiagnosis());
-        addLegacyTextObservation(observations, encounter, savedRecord.getPatient(), "Symptoms", ConceptClass.SYMPTOM, savedRecord.getSymptoms());
-        addLegacyTextObservation(observations, encounter, savedRecord.getPatient(), "Clinical notes", ConceptClass.DIAGNOSIS, savedRecord.getNotes());
+        addLegacyTextObservation(observations, encounter, savedRecord.getPatient(), "Clinical diagnosis",
+                ConceptClass.DIAGNOSIS, savedRecord.getDiagnosis());
+        addLegacyTextObservation(observations, encounter, savedRecord.getPatient(), "Symptoms", ConceptClass.SYMPTOM,
+                savedRecord.getSymptoms());
+        addLegacyTextObservation(observations, encounter, savedRecord.getPatient(), "Clinical notes",
+                ConceptClass.DIAGNOSIS, savedRecord.getNotes());
         if (request.observations() != null) {
             request.observations().stream()
                     .map(obsRequest -> toObservation(obsRequest, encounter, savedRecord.getPatient()))
@@ -156,18 +160,16 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
             Patient patient,
             String conceptName,
             ConceptClass conceptClass,
-            String value
-    ) {
+            String value) {
         if (value == null || value.isBlank()) {
             return;
         }
         Concept concept = conceptRepository.findFirstByNameAndDatatypeAndConceptClass(
-                        conceptName, DataType.TEXT, conceptClass
-                )
+                conceptName, DataType.TEXT, conceptClass)
                 .orElseThrow(() -> new IllegalStateException("Thiếu concept mặc định: " + conceptName));
         observations.add(Obs.builder()
                 .encounter(encounter)
-                .person(patient)
+                .person(patient.getPerson())
                 .concept(concept)
                 .valueText(value)
                 .build());
@@ -188,7 +190,7 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
 
         Obs.ObsBuilder obs = Obs.builder()
                 .encounter(encounter)
-                .person(patient)
+                .person(patient.getPerson())
                 .concept(concept);
         if (request.valueDatetime() != null) {
             obs.valueDatetime(request.valueDatetime());
@@ -198,7 +200,8 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
             obs.valueText(request.valueText());
         } else if (request.valueCodedId() != null && concept.getDatatype() == DataType.CODED) {
             Concept codedValue = conceptRepository.findById(request.valueCodedId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy concept đáp án với ID: " + request.valueCodedId()));
+                    .orElseThrow(() -> new RuntimeException(
+                            "Không tìm thấy concept đáp án với ID: " + request.valueCodedId()));
             obs.valueCoded(codedValue);
         } else if (request.valueBoolean() != null && concept.getDatatype() == DataType.BOOLEAN) {
             obs.valueBoolean(request.valueBoolean());
@@ -221,7 +224,8 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
     @Transactional(readOnly = true)
     public MedicalRecordResponse getMedicalRecordByAppointmentId(Long appointmentId, UserPrincipal currentUser) {
         MedicalRecord medicalRecord = medicalRecordRepository.findByAppointmentId(appointmentId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy hồ sơ bệnh án cho lịch hẹn ID: " + appointmentId));
+                .orElseThrow(
+                        () -> new RuntimeException("Không tìm thấy hồ sơ bệnh án cho lịch hẹn ID: " + appointmentId));
         checkReadAccess(medicalRecord, currentUser);
         return medicalRecordMapper.toResponse(medicalRecord);
     }
@@ -230,7 +234,8 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
     @Transactional(readOnly = true)
     public List<MedicalRecordResponse> getMedicalRecordsByPatientId(Long patientId, UserPrincipal currentUser) {
         if (!medicalRecordSecurity.canAccessPatientRecords(patientId, currentUser)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem danh sách hồ sơ bệnh án của bệnh nhân này");
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền xem danh sách hồ sơ bệnh án của bệnh nhân này");
         }
         List<MedicalRecord> list = medicalRecordRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
         return list.stream().map(medicalRecordMapper::toResponse).toList();
@@ -240,7 +245,8 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
     @Transactional(readOnly = true)
     public List<MedicalRecordResponse> getMedicalRecordsByDoctorId(Long doctorId, UserPrincipal currentUser) {
         if (!medicalRecordSecurity.canAccessDoctorRecords(doctorId, currentUser)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem danh sách hồ sơ bệnh án này");
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền xem danh sách hồ sơ bệnh án này");
         }
         List<MedicalRecord> list = medicalRecordRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId);
         return list.stream().map(medicalRecordMapper::toResponse).toList();
@@ -249,8 +255,10 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
     @Override
     @Transactional(readOnly = true)
     public PagedResponse<MedicalRecordResponse> getAllMedicalRecords(Pageable pageable, UserPrincipal currentUser) {
-        if (currentUser == null || currentUser.getRole() != com.thphatts.clinicportal.modules.user.entity.enums.Role.ROLE_ADMIN) {
-            throw new org.springframework.security.access.AccessDeniedException("Chỉ ADMIN mới có quyền xem toàn bộ danh sách hồ sơ bệnh án");
+        if (currentUser == null
+                || currentUser.getRole() != com.thphatts.clinicportal.modules.user.entity.enums.Role.ROLE_ADMIN) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Chỉ ADMIN mới có quyền xem toàn bộ danh sách hồ sơ bệnh án");
         }
         Page<MedicalRecord> page = medicalRecordRepository.findAll(pageable);
         List<MedicalRecordResponse> items = page.getContent().stream()
@@ -263,8 +271,7 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
                 page.getSize(),
                 page.getTotalElements(),
                 page.getTotalPages(),
-                page.isLast()
-        );
+                page.isLast());
     }
 
     @Override
@@ -273,10 +280,12 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
             throw new RuntimeException("Hồ sơ bệnh án không tồn tại");
         }
         if (currentUser == null) {
-            throw new org.springframework.security.access.AccessDeniedException("Vui lòng đăng nhập để thực hiện thao tác");
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Vui lòng đăng nhập để thực hiện thao tác");
         }
         if (!medicalRecordSecurity.canAccessRecord(record.getId(), currentUser)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền truy cập hồ sơ bệnh án này");
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền truy cập hồ sơ bệnh án này");
         }
     }
 

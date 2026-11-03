@@ -1,6 +1,7 @@
 package com.thphatts.clinicportal.modules.patient.entity;
 
 import com.thphatts.clinicportal.modules.appointment.entity.Checkup;
+import com.thphatts.clinicportal.modules.person.entity.Person;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -16,52 +17,48 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Patient {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+   @Id
+   @GeneratedValue(strategy = GenerationType.IDENTITY)
+   private Long id;
 
-    @Column(name = "full_name", nullable = false, length = 100)
-    private String fullName;
+    @OneToOne(optional = false)
+   @JoinColumn(name = "person_id", unique = true, nullable = false)
+   private Person person;
 
-    @Column(name = "citizen_id", unique = true, length = 12)
-    private String citizenId;
+   @Column(name = "patient_code", nullable = false, unique = true)
+   private String patientCode;
 
-    @Column(name = "phone", unique = true, length = 15)
-    private String phone;
+   @Column(name = "blood_type")
+   private String bloodType;
 
-    @Column(name = "email", length = 100)
-    private String email;
+   @Column(name = "medical_history_summary", columnDefinition = "TEXT")
+   private String medicalHistorySummary;
 
-    @Column(name = "dob")
-    private LocalDate dob;
+   @Column(name = "created_at", updatable = false)
+   private LocalDateTime createdAt;
 
-    @Column(name = "gender", length = 10)
-    private String gender;
+   @Column(name = "updated_at")
+   private LocalDateTime updatedAt;
 
-    @Column(name = "address", length = 255)
-    private String address;
+   @PrePersist void onCreate() {
+       LocalDateTime now = LocalDateTime.now();
+       if (createdAt == null) createdAt = now;
+       updatedAt = now;
+   }
 
-    @Column(name = "user_id")
-    private String userId;
+   @PreUpdate void onUpdate() { updatedAt = LocalDateTime.now(); }
 
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+   @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, orphanRemoval = true)
+   @Builder.Default
+   private List<Checkup> checkups = new ArrayList<>();
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+   @Transient public String getFullName() { return person == null ? null : person.getFullName(); }
+   @Transient public String getCitizenId() { return person == null ? null : person.getCitizenId(); }
+   @Transient public String getPhone() { return person == null ? null : person.getPhoneNumber(); }
+   @Transient public String getEmail() { return person == null ? null : person.getEmail(); }
+   @Transient public LocalDate getDob() { return person == null ? null : person.getBirthdate(); }
+   @Transient public String getGender() { return person == null ? null : person.getGender(); }
+   @Transient public String getAddress() { return person == null ? null : person.getAddress(); }
+   @Transient public String getUserId() { return person == null || person.getUser() == null ? null : person.getUser().getId(); }
 
-    @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<Checkup> checkups = new ArrayList<>();
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 }

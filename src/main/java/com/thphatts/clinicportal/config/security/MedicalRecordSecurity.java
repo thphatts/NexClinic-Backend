@@ -46,7 +46,7 @@ public class MedicalRecordSecurity {
         // 3. PATIENT: Chỉ xem khi record.patient.userId == currentUserId
         if (currentUser.getRole() == Role.ROLE_PATIENT) {
             Patient patient = record.getPatient();
-            return patient != null && patient.getUserId() != null && patient.getUserId().equals(currentUser.getUserId());
+            return patient != null && patientRepository.belongsToUser(patient.getId(), currentUser.getUserId());
         }
 
         // 4. DOCTOR: Chỉ khi bác sĩ này đã từng có Appointment với đúng bệnh nhân của hồ sơ đó
@@ -75,9 +75,7 @@ public class MedicalRecordSecurity {
         }
 
         if (currentUser.getRole() == Role.ROLE_PATIENT) {
-            return patientRepository.findById(patientId)
-                    .map(patient -> currentUser.getUserId().equals(patient.getUserId()))
-                    .orElse(false);
+            return patientRepository.belongsToUser(patientId, currentUser.getUserId());
         }
 
         if (currentUser.getRole() == Role.ROLE_DOCTOR) {

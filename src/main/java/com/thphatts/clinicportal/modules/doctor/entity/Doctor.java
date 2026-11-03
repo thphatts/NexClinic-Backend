@@ -1,5 +1,6 @@
 package com.thphatts.clinicportal.modules.doctor.entity;
 
+import com.thphatts.clinicportal.modules.person.entity.Person;
 import com.thphatts.clinicportal.modules.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -15,26 +16,17 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class Doctor {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "full_name", nullable = false, length = 100)
-    private String fullName;
-
-    @Column(nullable = false, length = 100)
+    @OneToOne(optional = false)
+    @JoinColumn(name = "person_id", unique = true, nullable = false)
+    private Person person;
+    @Column(name = "specialization", nullable = false, length = 100)
     private String specialization;
-
-    @Column(length = 100)
+    @Column(name = "degree", length = 100)
     private String degree;
-
-    @Column(nullable = false, unique = true, length = 15)
-    private String phone;
-
-    @Column(nullable = false, unique = true, length = 100)
-    private String email;
-
     @Column(name = "experience_years")
     @Builder.Default
     private Integer experienceYears = 0;
@@ -61,14 +53,15 @@ public class Doctor {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+    @PrePersist void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        if (createdAt == null) createdAt = now;
+        updatedAt = now;
     }
 
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
+    @PreUpdate void onUpdate() { updatedAt = LocalDateTime.now(); }
+
+    @Transient public String getFullName() { return person == null ? null : person.getFullName(); }
+    @Transient public String getPhone() { return person == null ? null : person.getPhoneNumber(); }
+    @Transient public String getEmail() { return person == null ? null : person.getEmail(); }
 }

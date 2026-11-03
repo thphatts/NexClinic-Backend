@@ -9,6 +9,8 @@ import com.thphatts.clinicportal.modules.patient.entity.Patient;
 import com.thphatts.clinicportal.modules.user.entity.enums.Role;
 import com.thphatts.clinicportal.modules.user.entity.User;
 import com.thphatts.clinicportal.modules.patient.repository.PatientRepository;
+import com.thphatts.clinicportal.modules.person.entity.Person;
+import com.thphatts.clinicportal.modules.person.repository.PersonRepository;
 import com.thphatts.clinicportal.modules.user.repository.UserRepository;
 import com.thphatts.clinicportal.modules.user.service.AuthService;
 import com.thphatts.clinicportal.modules.user.service.RefreshTokenService;
@@ -25,6 +27,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
+    private final PersonRepository personRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
@@ -33,54 +36,66 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResult register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username đã tồn tại trong hệ thống: " + request.getUsername());
+        String username = request.getUsername().trim();
+        String email = request.getEmail().trim().toLowerCase();
+        if (userRepository.existsByUsername(username)) {
+            throw new RuntimeException("Username đã tồn tại trong hệ thống: " + username);
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email đã được đăng ký: " + request.getEmail());
+        if (userRepository.existsByEmail(email)) {
+            throw new RuntimeException("Email đã được đăng ký: " + email);
         }
 
-        String citizenId = (request.getCitizenId() != null && !request.getCitizenId().isBlank()) ? request.getCitizenId().trim() : null;
-        String phone = (request.getPhone() != null && !request.getPhone().isBlank()) ? request.getPhone().trim() : null;
+        String citizenId = normalizeOptional(request.getCitizenId());
+        String phone = normalizePhone(request.getPhone());
         String address = (request.getAddress() != null && !request.getAddress().isBlank()) ? request.getAddress().trim() : null;
 
-        if (citizenId != null) {
-            if (userRepository.existsByCitizenId(citizenId)) {
-                throw new RuntimeException("Số CCCD đã được đăng ký tài khoản trong hệ thống: " + citizenId);
-            }
+        Person person = personRepository.findByPhoneNumber(phone)
+                .orElseGet(() -> citizenId == null ? null : personRepository.findByCitizenId(citizenId).orElse(null));
+        if (person != null && userRepository.existsByPerson_Id(person.getId())) {
+            throw new RuntimeException("Hồ sơ này đã được liên kết với một tài khoản.");
+        }
+        if (person != null && citizenId != null && person.getCitizenId() != null
+                && !person.getCitizenId().equals(citizenId)) {
+            throw new RuntimeException("Số CCCD không khớp với hồ sơ đã có.");
+        }
+        if (person != null && person.getPhoneNumber() != null && !person.getPhoneNumber().equals(phone)) {
+            throw new RuntimeException("Số điện thoại không khớp với hồ sơ đã có.");
+        }
+        if (person != null) {
+            if (person.getPhoneNumber() == null) person.setPhoneNumber(phone);
+            if (person.getCitizenId() == null) person.setCitizenId(citizenId);
+            if (person.getEmail() == null) person.setEmail(email);
+        }
+        if (person == null) {
+            person = new Person();
+            person.setFullName(request.getName().trim());
+            person.setBirthdate(request.getDob());
+            person.setGender(normalizeGender(request.getGender()));
+            person.setPhoneNumber(phone);
+            person.setEmail(email);
+            person.setAddress(address);
+            person.setCitizenId(citizenId);
         }
 
         Role role = Role.ROLE_PATIENT;
 
         User user = User.builder()
-                .name(request.getName().trim())
-                .username(request.getUsername().trim())
-                .email(request.getEmail().trim())
+                .username(username)
+                .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
-                .phoneNumber(phone)
-                .address(address)
-                .citizenId(citizenId)
+                .person(person)
                 .role(role)
                 .build();
 
         User savedUser = userRepository.save(user);
 
-        // Tự động liên kết hoặc khởi tạo Hồ sơ Bệnh nhân (Patient Record)
-        if (citizenId != null) {
-            patientRepository.findByCitizenId(citizenId).ifPresentOrElse(
-                    existingPatient -> {
-                        existingPatient.setUserId(savedUser.getId());
-                        if (request.getDob() != null) existingPatient.setDob(request.getDob());
-                        if (request.getGender() != null) existingPatient.setGender(request.getGender());
-                        if (phone != null) existingPatient.setPhone(phone);
-                        if (address != null) existingPatient.setAddress(address);
-                        patientRepository.save(existingPatient);
-                    },
-                    () -> createNewPatientRecord(savedUser, request, citizenId, phone, address)
-            );
-        } else {
-            createNewPatientRecord(savedUser, request, null, phone, address);
+        // Keep the clinical record ID stable when a returning patient claims their verified phone.
+        if (patientRepository.findByPerson_Id(person.getId()).isEmpty()) {
+            patientRepository.save(Patient.builder()
+                    .person(person)
+                    .patientCode("PT-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                    .build());
         }
 
         String token = tokenProvider.generateToken(savedUser);
@@ -149,17 +164,22 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenService.revoke(rawRefreshToken);
     }
 
-    private void createNewPatientRecord(User savedUser, RegisterRequest request, String citizenId, String phone, String address) {
-        Patient newPatient = Patient.builder()
-                .fullName(savedUser.getName())
-                .citizenId(citizenId)
-                .phone(phone)
-                .email(savedUser.getEmail())
-                .address(address)
-                .dob(request.getDob())
-                .gender(request.getGender())
-                .userId(savedUser.getId())
-                .build();
-        patientRepository.save(newPatient);
+    private String normalizePhone(String phone) {
+        if (phone == null || phone.isBlank()) throw new IllegalArgumentException("Số điện thoại không được để trống.");
+        return phone.replaceAll("[\\s()-]", "").trim();
+    }
+
+    private String normalizeOptional(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String normalizeGender(String gender) {
+        if (gender == null || gender.isBlank()) return null;
+        return switch (gender.trim().toUpperCase()) {
+            case "M", "MALE", "NAM" -> "M";
+            case "F", "FEMALE", "NU", "NỮ" -> "F";
+            case "O", "OTHER", "KHAC", "KHÁC" -> "O";
+            default -> "U";
+        };
     }
 }

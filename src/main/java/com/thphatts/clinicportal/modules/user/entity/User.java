@@ -1,8 +1,11 @@
 package com.thphatts.clinicportal.modules.user.entity;
 
+import com.thphatts.clinicportal.modules.person.entity.Person;
 import com.thphatts.clinicportal.modules.user.entity.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Setter
@@ -16,26 +19,27 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    private String name;
+    @OneToOne(optional = false, cascade = CascadeType.PERSIST)
+    @JoinColumn(name = "person_id", unique = true, nullable = false)
+    private Person person;
 
-    @Column(name = "address", length = 255)
-    private String address;
-
-    @Column(name = "phone", length = 15)
-    private String phoneNumber;
-
-    @Column(unique = true, length = 100)
+    @Column(nullable = false, unique = true, length = 100)
     private String email;
 
-    @Column(length = 50)
+    @Column(nullable = false, unique = true, length = 50)
     private String username;
 
+    @Column(nullable = false)
     private String password;
-
-    @Column(name = "citizen_id", unique = true, length = 12)
-    private String citizenId;
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private Role role = Role.ROLE_PATIENT;
+
+   private LocalDateTime lastLogin;
+
+   @Transient public String getName() { return person == null ? null : person.getFullName(); }
+   @Transient public String getPhoneNumber() { return person == null ? null : person.getPhoneNumber(); }
+   @Transient public String getAddress() { return person == null ? null : person.getAddress(); }
+   @Transient public String getCitizenId() { return person == null ? null : person.getCitizenId(); }
 }

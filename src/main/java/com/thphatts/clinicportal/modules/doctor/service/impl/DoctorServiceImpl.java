@@ -8,6 +8,7 @@ import com.thphatts.clinicportal.modules.user.entity.User;
 import com.thphatts.clinicportal.modules.doctor.mapper.DoctorMapper;
 import com.thphatts.clinicportal.modules.doctor.repository.DoctorRepository;
 import com.thphatts.clinicportal.modules.user.repository.UserRepository;
+import com.thphatts.clinicportal.modules.person.repository.PersonRepository;
 import com.thphatts.clinicportal.modules.doctor.service.DoctorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -26,6 +27,7 @@ public class DoctorServiceImpl implements DoctorService {
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
     private final DoctorMapper doctorMapper;
+    private final PersonRepository personRepository;
 
     @Override
     @Transactional
@@ -42,7 +44,12 @@ public class DoctorServiceImpl implements DoctorService {
         if (request.userId() != null && !request.userId().isBlank()) {
             User user = userRepository.findById(request.userId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản User với ID: " + request.userId()));
+            if (doctorRepository.findByUserId(user.getId()).isPresent())
+                throw new IllegalArgumentException("Tài khoản này đã được liên kết với hồ sơ bác sĩ khác.");
+            doctor.setPerson(user.getPerson());
             doctor.setUser(user);
+        } else {
+            doctor.setPerson(personRepository.save(doctor.getPerson()));
         }
 
         Doctor savedDoctor = doctorRepository.save(doctor);
@@ -64,10 +71,13 @@ public class DoctorServiceImpl implements DoctorService {
         }
 
         doctorMapper.updateEntityFromRequest(request, doctor);
+        personRepository.save(doctor.getPerson());
 
         if (request.userId() != null && !request.userId().isBlank()) {
             User user = userRepository.findById(request.userId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản User với ID: " + request.userId()));
+            if (!doctor.getPerson().getId().equals(user.getPerson().getId()))
+                throw new IllegalArgumentException("Tài khoản bác sĩ phải dùng cùng hồ sơ Person; không thể đổi chủ thể hồ sơ.");
             doctor.setUser(user);
         }
 

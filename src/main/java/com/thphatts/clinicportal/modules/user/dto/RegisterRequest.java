@@ -31,6 +31,7 @@ public class RegisterRequest {
     @NotBlank(message = "Mật khẩu không được để trống")
     @Size(min = 6, message = "Mật khẩu phải từ 6 ký tự trở lên")
     private String password;
+    @NotBlank(message = "Số điện thoại không được để trống")
     private String phone;
     private String address;
 

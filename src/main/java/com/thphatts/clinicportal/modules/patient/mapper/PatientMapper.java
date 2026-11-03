@@ -2,41 +2,46 @@ package com.thphatts.clinicportal.modules.patient.mapper;
 
 import com.thphatts.clinicportal.modules.patient.dto.PatientRequest;
 import com.thphatts.clinicportal.modules.patient.dto.PatientResponse;
-import com.thphatts.clinicportal.modules.appointment.entity.Checkup;
 import com.thphatts.clinicportal.modules.patient.entity.Patient;
-import org.mapstruct.*;
+import org.springframework.stereotype.Component;
 
-import java.util.Collections;
 import java.util.List;
 
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
-public interface PatientMapper {
+@Component
+public class PatientMapper {
+    public PatientResponse toResponse(Patient patient) {
+        List<String> diagnoses = patient.getCheckups() == null ? List.of() : patient.getCheckups().stream()
+                .map(c -> c.getDiagnoses()).filter(d -> d != null && !d.isBlank()).toList();
+        return new PatientResponse(patient.getId(), patient.getFullName(), patient.getCitizenId(), patient.getPhone(),
+                patient.getEmail(), patient.getDob(), patient.getGender(), patient.getAddress(), patient.getUserId(),
+                patient.getCreatedAt(), diagnoses);
+    }
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "userId", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "checkups", ignore = true)
-    Patient toEntity(PatientRequest request);
+    public Patient toEntity(PatientRequest request) {
+        Patient patient = new Patient();
+        updateEntityFromRequest(request, patient);
+        return patient;
+    }
 
-    @Mapping(target = "diagnoses", source = "checkups", qualifiedByName = "mapCheckupsToDiagnoses")
-    PatientResponse toResponse(Patient patient);
+    public void updateEntityFromRequest(PatientRequest request, Patient patient) {
+        if (patient.getPerson() == null) patient.setPerson(new com.thphatts.clinicportal.modules.person.entity.Person());
+        var person = patient.getPerson();
+        person.setFullName(request.getFullName());
+        person.setCitizenId(request.getCitizenId());
+        person.setPhoneNumber(request.getPhone());
+        person.setEmail(request.getEmail());
+        person.setBirthdate(request.getDob());
+        person.setGender(normalizeGender(request.getGender()));
+        person.setAddress(request.getAddress());
+    }
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "userId", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "checkups", ignore = true)
-    void updateEntityFromRequest(PatientRequest request, @MappingTarget Patient patient);
-
-    @Named("mapCheckupsToDiagnoses")
-    default List<String> mapCheckupsToDiagnoses(List<Checkup> checkups) {
-        if (checkups == null || checkups.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return checkups.stream()
-                .map(Checkup::getDiagnoses)
-                .filter(d -> d != null && !d.isBlank())
-                .toList();
+    private String normalizeGender(String gender) {
+        if (gender == null || gender.isBlank()) return "U";
+        return switch (gender.trim().toUpperCase()) {
+            case "M", "MALE", "NAM" -> "M";
+            case "F", "FEMALE", "NU", "NỮ" -> "F";
+            case "O", "OTHER", "KHAC", "KHÁC" -> "O";
+            default -> "U";
+        };
     }
 }
