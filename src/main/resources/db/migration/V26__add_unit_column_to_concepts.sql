@@ -1,0 +1,1 @@
+ALTER TABLE concepts ADD COLUMN unit VARCHAR(255);
