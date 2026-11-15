@@ -1,5 +1,7 @@
 package com.thphatts.clinicportal.modules.doctor.service;
 
+import static com.thphatts.clinicportal.support.PersonFixtures.person;
+
 import com.thphatts.clinicportal.modules.doctor.dto.DoctorRequest;
 import com.thphatts.clinicportal.modules.doctor.dto.DoctorResponse;
 import com.thphatts.clinicportal.common.dto.PagedResponse;
@@ -48,14 +50,14 @@ class DoctorServiceTest {
     void setUp() {
         mockDoctor = Doctor.builder()
                 .id(1L)
-                .fullName("BS. Trần Thị Bình")
+                
                 .specialization("Tim Mạch")
                 .degree("Tiến sĩ Y Khoa")
-                .phone("0912345678")
-                .email("binh.tran@clinic.com")
+                
                 .experienceYears(10)
                 .consultationFee(BigDecimal.valueOf(300000))
-                .build();
+                
+                .person(person("BS. Trần Thị Bình", "0912345678", null, null)).build();
 
         doctorRequest = new DoctorRequest(
                 "BS. Trần Thị Bình",

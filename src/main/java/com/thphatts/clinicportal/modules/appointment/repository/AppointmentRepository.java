@@ -6,13 +6,17 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.ArrayList;
 
-public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
+public interface AppointmentRepository extends JpaRepository<Appointment, Long>, JpaSpecificationExecutor<Appointment> {
 
     // Chống trùng ca khám của cùng một Bác sĩ (trừ những lịch hẹn bị CANCELLED)
     boolean existsByDoctorIdAndAppointmentDateAndTimeSlotAndStatusNot(
@@ -25,20 +29,30 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     );
 
     @EntityGraph(attributePaths = {"patient", "doctor"})
-    @Query("SELECT a FROM Appointment a WHERE " +
-           "(:doctorId IS NULL OR a.doctor.id = :doctorId) AND " +
-           "(:patientId IS NULL OR a.patient.id = :patientId) AND " +
-           "(:status IS NULL OR a.status = :status) AND " +
-           "(:fromDate IS NULL OR a.appointmentDate >= :fromDate) AND " +
-           "(:toDate IS NULL OR a.appointmentDate <= :toDate)")
-    Page<Appointment> filterAppointments(
-            @Param("doctorId") Long doctorId,
-            @Param("patientId") Long patientId,
-            @Param("status") AppointmentStatus status,
-            @Param("fromDate") LocalDate fromDate,
-            @Param("toDate") LocalDate toDate,
-            Pageable pageable
-    );
+    Page<Appointment> findAll(Specification<Appointment> specification, Pageable pageable);
+
+    default Page<Appointment> filterAppointments(Long doctorId, Long patientId, AppointmentStatus status,
+                                                 LocalDate fromDate, LocalDate toDate, Pageable pageable) {
+        return findAll((root, query, builder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (doctorId != null) {
+                predicates.add(builder.equal(root.get("doctor").get("id"), doctorId));
+            }
+            if (patientId != null) {
+                predicates.add(builder.equal(root.get("patient").get("id"), patientId));
+            }
+            if (status != null) {
+                predicates.add(builder.equal(root.get("status"), status));
+            }
+            if (fromDate != null) {
+                predicates.add(builder.greaterThanOrEqualTo(root.<LocalDate>get("appointmentDate"), fromDate));
+            }
+            if (toDate != null) {
+                predicates.add(builder.lessThanOrEqualTo(root.<LocalDate>get("appointmentDate"), toDate));
+            }
+            return builder.and(predicates.toArray(new Predicate[0]));
+        }, pageable);
+    }
 
     @Query("SELECT COUNT(a) FROM Appointment a WHERE a.doctor.id = :doctorId AND a.patient.id = :patientId AND a.status = 'COMPLETED'")
     int visitsCountSnapshot(@Param("patientId") Long patientId, @Param("doctorId") Long doctorId);

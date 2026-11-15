@@ -1,5 +1,7 @@
 package com.thphatts.clinicportal.modules.ai.service;
 
+import static com.thphatts.clinicportal.support.PersonFixtures.person;
+
 import com.thphatts.clinicportal.modules.ai.dto.AiChatRequest;
 import com.thphatts.clinicportal.modules.ai.dto.SymptomAnalysisRequest;
 import com.thphatts.clinicportal.modules.ai.dto.AiAgentActionResult;
@@ -193,8 +195,10 @@ class AiServiceTest {
         @Test
         @DisplayName("Tóm tắt thành công bệnh án có đơn thuốc")
         void summarizeMedicalRecord_Success() {
-            Patient patient = Patient.builder().fullName("Bệnh nhân Nguyễn Văn A").build();
-            Doctor doctor = Doctor.builder().fullName("BS. Trần Thị B").build();
+            Patient patient = Patient.builder()
+                .person(person("Bệnh nhân Nguyễn Văn A", null, null, null)).build();
+            Doctor doctor = Doctor.builder()
+                .person(person("BS. Trần Thị B", null, null, null)).build();
             Product medicine = Product.builder().name("Paracetamol 500mg").build();
 
             PrescriptionItem item = new PrescriptionItem();

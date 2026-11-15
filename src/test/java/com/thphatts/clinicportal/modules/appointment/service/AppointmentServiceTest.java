@@ -1,5 +1,7 @@
 package com.thphatts.clinicportal.modules.appointment.service;
 
+import static com.thphatts.clinicportal.support.PersonFixtures.person;
+
 import com.thphatts.clinicportal.modules.appointment.dto.AppointmentRequest;
 import com.thphatts.clinicportal.modules.appointment.dto.AppointmentResponse;
 import com.thphatts.clinicportal.modules.appointment.entity.Appointment;
@@ -58,16 +60,18 @@ class AppointmentServiceTest {
     void setUp() {
         mockPatient = Patient.builder()
                 .id(1L)
-                .fullName("Bệnh nhân Nguyễn Văn X")
-                .phone("0901234567")
-                .build();
+                
+                
+                
+                .person(person("Bệnh nhân Nguyễn Văn X", "0901234567", null, null)).build();
 
         mockDoctor = Doctor.builder()
                 .id(1L)
-                .fullName("Bác sĩ Nguyễn Văn A")
+                
                 .specialization("Nội Khoa")
                 .consultationFee(BigDecimal.valueOf(200000))
-                .build();
+                
+                .person(person("Bác sĩ Nguyễn Văn A", null, null, null)).build();
 
         validRequest = new AppointmentRequest(
                 1L,

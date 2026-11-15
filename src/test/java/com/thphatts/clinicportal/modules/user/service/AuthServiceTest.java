@@ -1,5 +1,7 @@
 package com.thphatts.clinicportal.modules.user.service;
 
+import static com.thphatts.clinicportal.support.PersonFixtures.person;
+
 import com.thphatts.clinicportal.config.security.JwtTokenProvider;
 import com.thphatts.clinicportal.modules.user.dto.LoginRequest;
 import com.thphatts.clinicportal.modules.user.dto.RegisterRequest;
@@ -52,12 +54,13 @@ class AuthServiceTest {
     void setUp() {
         mockUser = User.builder()
                 .id("user-uuid-001")
-                .name("Nguyễn Văn Test")
+                
                 .username("testuser")
                 .email("test@clinic.com")
                 .password("encoded_password")
                 .role(Role.ROLE_PATIENT)
-                .build();
+                
+                .person(person("Nguyễn Văn Test", null, null, null)).build();
 
         // RegisterRequest dùng @Data → có setter
         registerRequest = RegisterRequest.builder()
@@ -117,9 +120,10 @@ class AuthServiceTest {
             // Arrange
             Patient existingPatient = Patient.builder()
                     .id(1L)
-                    .fullName("Nguyễn Văn Test")
-                    .citizenId("079123456789")
-                    .build();
+                    
+                    
+                    
+                .person(person("Nguyễn Văn Test", null, "079123456789", null)).build();
 
             when(userRepository.existsByUsername("testuser")).thenReturn(false);
             when(userRepository.existsByEmail("test@clinic.com")).thenReturn(false);

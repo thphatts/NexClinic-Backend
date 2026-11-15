@@ -1,5 +1,7 @@
 package com.thphatts.clinicportal.modules.patient.service;
 
+import static com.thphatts.clinicportal.support.PersonFixtures.person;
+
 import com.thphatts.clinicportal.config.security.MedicalRecordSecurity;
 import com.thphatts.clinicportal.config.security.UserPrincipal;
 import com.thphatts.clinicportal.modules.patient.dto.MedicalRecordRequest;
@@ -71,16 +73,18 @@ class MedicalRecordServiceTest {
 
         mockPatient = Patient.builder()
                 .id(1L)
-                .fullName("Bệnh nhân Nguyễn Văn X")
-                .phone("0901234567")
-                .citizenId("079000000001")
-                .build();
+                
+                
+                
+                
+                .person(person("Bệnh nhân Nguyễn Văn X", "0901234567", "079000000001", null)).build();
 
         mockDoctor = Doctor.builder()
                 .id(1L)
-                .fullName("BS. Trần Thị Bình")
+                
                 .specialization("Nội Khoa")
-                .build();
+                
+                .person(person("BS. Trần Thị Bình", null, null, null)).build();
 
         mockAppointment = Appointment.builder()
                 .id(1L)

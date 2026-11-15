@@ -1,5 +1,7 @@
 package com.thphatts.clinicportal.modules.chat.service;
 
+import static com.thphatts.clinicportal.support.PersonFixtures.person;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.thphatts.clinicportal.config.security.UserPrincipal;
 import com.thphatts.clinicportal.modules.chat.dto.CreateChatRoomRequest;
@@ -84,21 +86,24 @@ class ChatServiceTest {
         User doctorUser = User.builder()
                 .id("doctor-uuid")
                 .username("bs.an")
-                .name("BS. Nguyễn Văn An")
+                
                 .role(Role.ROLE_DOCTOR)
-                .build();
+                
+                .person(person("BS. Nguyễn Văn An", null, null, null)).build();
         User patientUser = User.builder()
                 .id("patient-uuid")
                 .username("patient01")
-                .name("Trần Thị Bình")
+                
                 .role(Role.ROLE_PATIENT)
-                .build();
+                
+                .person(person("Trần Thị Bình", null, null, null)).build();
         User adminUser = User.builder()
                 .id("admin-uuid")
                 .username("admin")
-                .name("Admin")
+                
                 .role(Role.ROLE_ADMIN)
-                .build();
+                
+                .person(person("Admin", null, null, null)).build();
 
         doctorPrincipal  = new UserPrincipal(doctorUser);
         patientPrincipal = new UserPrincipal(patientUser);
@@ -107,17 +112,19 @@ class ChatServiceTest {
         // Doctor & Patient entities
         mockDoctor = Doctor.builder()
                 .id(1L)
-                .fullName("BS. Nguyễn Văn An")
+                
                 .specialization("Nội Khoa")
                 .user(doctorUser)
-                .build();
+                
+                .person(person("BS. Nguyễn Văn An", null, null, null)).build();
 
         mockPatient = Patient.builder()
                 .id(2L)
-                .fullName("Trần Thị Bình")
-                .phone("0900000001")
-                .userId("patient-uuid")
-                .build();
+                
+                
+                
+                
+                .person(person("Trần Thị Bình", "0900000001", null, "patient-uuid")).build();
 
         mockRoom = ChatRoom.builder()
                 .id(10L)
@@ -301,10 +308,11 @@ class ChatServiceTest {
             when(userRepository.findById("patient-uuid"))
                     .thenReturn(Optional.of(User.builder()
                             .id("patient-uuid")
-                            .name("Trần Thị Bình")
+                            
                             .username("patient01")
                             .role(Role.ROLE_PATIENT)
-                            .build()));
+                            
+                .person(person("Trần Thị Bình", null, null, null)).build()));
             when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(patientMessage);
             when(chatRoomRepository.save(any(ChatRoom.class))).thenReturn(mockRoom);
 
@@ -435,8 +443,9 @@ class ChatServiceTest {
         void getMessageHistory_DoctorAccessOtherRoom_Forbidden() {
             Doctor anotherDoctor = Doctor.builder()
                     .id(99L) // khác với mockRoom.doctorId = 1L
-                    .fullName("BS. Khác")
-                    .build();
+                    
+                    
+                .person(person("BS. Khác", null, null, null)).build();
 
             when(chatRoomRepository.findById(10L)).thenReturn(Optional.of(mockRoom));
             when(doctorRepository.findByUserId("doctor-uuid"))
@@ -606,7 +615,8 @@ class ChatServiceTest {
         @Test
         @DisplayName("Người dùng không thuộc phòng chat — bị từ chối")
         void markAsRead_UserNotInRoom_Throws() {
-            Doctor anotherDoctor = Doctor.builder().id(99L).fullName("BS. Khác").build();
+            Doctor anotherDoctor = Doctor.builder().id(99L)
+                .person(person("BS. Khác", null, null, null)).build();
 
             when(chatRoomRepository.findById(10L)).thenReturn(Optional.of(mockRoom));
             when(doctorRepository.findByUserId("doctor-uuid"))

@@ -11,6 +11,8 @@ import com.thphatts.clinicportal.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -29,51 +31,48 @@ public class DataInitializer implements CommandLineRunner {
     private final PersonRepository personRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${app.dev.reset-demo-passwords:false}")
+    private boolean resetDemoPasswords;
+
     @Override
+    @Transactional
     public void run(String... args) throws Exception {
         initUsers();
         initPatients();
     }
 
     private void initUsers() {
-        if (!userRepository.existsByUsername("admin")) {
-            log.info("Khởi tạo tài khoản mẫu Admin, Doctor, Receptionist...");
+        initUser("admin", "admin@clinic.com", "Quản Trị Viên", "0900000001", Role.ROLE_ADMIN);
+        initUser("doctor", "doctor@clinic.com", "Bác Sĩ Nguyễn Văn A", "0900000002", Role.ROLE_DOCTOR);
+        initUser("receptionist", "receptionist@clinic.com", "Lễ Tân Lê Thị B", "0900000003", Role.ROLE_RECEPTIONIST);
+        initUser("patient", "patient@clinic.com", "Bệnh Nhân Mẫu", "0900000004", Role.ROLE_PATIENT);
+    }
 
-            User admin = User.builder()
-                    .person(person("Quản Trị Viên", "0900000001", "admin@clinic.com", "Phòng Khám Trung Tâm"))
-                    .username("admin")
-                    .email("admin@clinic.com")
-                    .password(passwordEncoder.encode("password123"))
-                    .role(Role.ROLE_ADMIN)
-                    .build();
-
-            User doctor = User.builder()
-                    .person(person("Bác Sĩ Nguyễn Văn A", "0900000002", "doctor@clinic.com", "Khoa Nội - Phòng Khám"))
-                    .username("doctor")
-                    .email("doctor@clinic.com")
-                    .password(passwordEncoder.encode("password123"))
-                    .role(Role.ROLE_DOCTOR)
-                    .build();
-
-            User receptionist = User.builder()
-                    .person(person("Lễ Tân Lê Thị B", "0900000003", "receptionist@clinic.com", "Quầy Lễ Tân"))
-                    .username("receptionist")
-                    .email("receptionist@clinic.com")
-                    .password(passwordEncoder.encode("password123"))
-                    .role(Role.ROLE_RECEPTIONIST)
-                    .build();
-
-            User patientUser = User.builder()
-                    .person(person("Bệnh Nhân Mẫu", "0900000004", "patient@clinic.com", "TP. Hồ Chí Minh"))
-                    .username("patient")
-                    .email("patient@clinic.com")
-                    .password(passwordEncoder.encode("password123"))
-                    .role(Role.ROLE_PATIENT)
-                    .build();
-
-            userRepository.saveAll(List.of(admin, doctor, receptionist, patientUser));
-            log.info("Khởi tạo thành công các tài khoản mẫu!");
+    private void initUser(String username, String email, String name, String phone, Role role) {
+        User existing = userRepository.findByUsername(username).orElse(null);
+        if (existing != null) {
+            if (resetDemoPasswords && email.equals(existing.getEmail()) && role == existing.getRole()) {
+                existing.setPassword(passwordEncoder.encode("password123"));
+                userRepository.save(existing);
+                log.info("Đã đặt lại mật khẩu tài khoản mẫu {} trong profile dev", username);
+            } else {
+                log.info("Giữ nguyên tài khoản đã tồn tại: {}", username);
+            }
+            return;
         }
+        if (userRepository.existsByEmail(email)) {
+            log.warn("Bỏ qua tài khoản mẫu {} vì email đã được sử dụng", username);
+            return;
+        }
+        User user = User.builder()
+                .username(username)
+                .email(email)
+                .password(passwordEncoder.encode("password123"))
+                .person(person(name, phone, email, "Phòng khám mẫu"))
+                .role(role)
+                .build();
+        userRepository.save(user);
+        log.info("Đã tạo tài khoản mẫu {} trong profile dev", username);
     }
 
     private void initPatients() {
