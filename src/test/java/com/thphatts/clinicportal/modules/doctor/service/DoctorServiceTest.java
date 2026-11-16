@@ -9,6 +9,7 @@ import com.thphatts.clinicportal.modules.doctor.entity.Doctor;
 import com.thphatts.clinicportal.modules.doctor.mapper.DoctorMapper;
 import com.thphatts.clinicportal.modules.doctor.repository.DoctorRepository;
 import com.thphatts.clinicportal.modules.user.repository.UserRepository;
+import com.thphatts.clinicportal.modules.person.repository.PersonRepository;
 import com.thphatts.clinicportal.modules.doctor.service.impl.DoctorServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +39,7 @@ class DoctorServiceTest {
     @Mock private DoctorRepository doctorRepository;
     @Mock private UserRepository userRepository;
     @Mock private DoctorMapper doctorMapper;
+    @Mock private PersonRepository personRepository;
 
     @InjectMocks
     private DoctorServiceImpl doctorService;
@@ -91,6 +93,7 @@ class DoctorServiceTest {
             when(doctorRepository.existsByPhone("0912345678")).thenReturn(false);
             when(doctorRepository.existsByEmail("binh.tran@clinic.com")).thenReturn(false);
             when(doctorMapper.toEntity(doctorRequest)).thenReturn(mockDoctor);
+            when(personRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
             when(doctorRepository.save(mockDoctor)).thenReturn(mockDoctor);
             when(doctorMapper.toResponse(mockDoctor)).thenReturn(mockResponse);
 

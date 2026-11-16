@@ -1,0 +1,83 @@
+services:
+  postgres_db:
+    image: pgvector/pgvector:pg14
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - clinic_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - clinic_internal
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - clinic_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - clinic_internal
+
+  app:
+    image: ${IMAGE:?IMAGE is required}
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:?VNPAY_TMN_CODE is required}
+      VNPAY_SECRET_KEY: ${VNPAY_SECRET_KEY:?VNPAY_SECRET_KEY is required}
+      VNPAY_PAY_URL: ${VNPAY_PAY_URL:?VNPAY_PAY_URL is required}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:?VNPAY_RETURN_URL is required}
+      ENABLE_SWAGGER: ${ENABLE_SWAGGER:-false}
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
+      SPRING_FLYWAY_CLEAN_DISABLED: "true"
+      MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: never
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 5s
+      timeout: 5s
+      start_period: 60s
+      retries: 20
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    networks:
+      - clinic_internal
+
+volumes:
+  clinic_postgres_data:
+  clinic_redis_data:
+
+networks:
+  clinic_internal:

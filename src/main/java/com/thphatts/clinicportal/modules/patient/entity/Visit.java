@@ -23,6 +23,13 @@ public class Visit {
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
+    @Column(name = "appointment_id", unique = true)
+    private Long appointmentId;
+
+    @Column(name = "visit_type", nullable = false, length = 30)
+    @Builder.Default
+    private String visitType = "OUTPATIENT";
+
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
 

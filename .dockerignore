@@ -24,3 +24,8 @@ HELP.md
 README.md
 implementation_plan.md
 walkthrough.md
+
+# CI metadata and local environment variants
+.github/
+.env.*
+!.env.example

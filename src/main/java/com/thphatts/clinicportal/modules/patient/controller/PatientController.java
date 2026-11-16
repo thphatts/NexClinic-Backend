@@ -30,13 +30,13 @@ public class PatientController extends BaseController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF', 'RECEPTIONIST')")
     public ApiResponse<PatientResponse> createPatient(@Valid @RequestBody PatientRequest request) {
         return ApiResponse.success(patientService.createPatient(request));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF', 'RECEPTIONIST')")
     public ApiResponse<PagedResponse<PatientResponse>> getAllPatients(
             @RequestParam(value = "page_no", defaultValue = "1") int page,
             @RequestParam(value = "page_size", defaultValue = "10") int size,
@@ -54,19 +54,19 @@ public class PatientController extends BaseController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF', 'RECEPTIONIST')")
     public ApiResponse<PatientResponse> getPatientById(@PathVariable("id") Long id) {
         return ApiResponse.success(patientService.getPatientById(id));
     }
 
     @GetMapping("/citizen-id/{citizenId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF', 'RECEPTIONIST')")
     public ApiResponse<PatientResponse> getPatientByCitizenId(@PathVariable("citizenId") String citizenId) {
         return ApiResponse.success(patientService.getPatientByCitizenId(citizenId));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR', 'STAFF', 'RECEPTIONIST')")
     public ApiResponse<PatientResponse> updatePatient(
             @PathVariable("id") Long id,
             @Valid @RequestBody PatientRequest request

@@ -34,4 +34,16 @@ public class Concept {
     private ConceptClass conceptClass;
 
     private String unit;
+
+    @Column(name = "min_value")
+    private Double minValue;
+
+    @Column(name = "max_value")
+    private Double maxValue;
+
+    @Column(name = "is_required", nullable = false)
+    private boolean required;
+
+    @Column(nullable = false)
+    private boolean retired;
 }

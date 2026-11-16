@@ -22,6 +22,10 @@ import com.thphatts.clinicportal.modules.patient.mapper.MedicalRecordMapper;
 import com.thphatts.clinicportal.modules.product.repository.ProductRepository;
 import com.thphatts.clinicportal.modules.appointment.repository.AppointmentRepository;
 import com.thphatts.clinicportal.modules.patient.repository.MedicalRecordRepository;
+import com.thphatts.clinicportal.modules.patient.repository.VisitRepository;
+import com.thphatts.clinicportal.modules.patient.repository.EncounterRepository;
+import com.thphatts.clinicportal.modules.patient.repository.ObsRepository;
+import com.thphatts.clinicportal.modules.concept.repository.ConceptRepository;
 import com.thphatts.clinicportal.modules.patient.service.impl.MedicalRecordServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,6 +55,10 @@ class MedicalRecordServiceTest {
     @Mock private ProductRepository productRepository;
     @Mock private MedicalRecordMapper medicalRecordMapper;
     @Mock private MedicalRecordSecurity medicalRecordSecurity;
+    @Mock private VisitRepository visitRepository;
+    @Mock private EncounterRepository encounterRepository;
+    @Mock private ObsRepository obsRepository;
+    @Mock private ConceptRepository conceptRepository;
 
     @InjectMocks
     private MedicalRecordServiceImpl medicalRecordService;
@@ -115,6 +123,15 @@ class MedicalRecordServiceTest {
         );
     }
 
+    private void stubClinicalPersistence() {
+        when(visitRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(encounterRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(conceptRepository.findFirstByNameAndDatatypeAndConceptClass(anyString(), any(), any()))
+                .thenAnswer(invocation -> Optional.of(com.thphatts.clinicportal.modules.concept.entity.Concept.builder()
+                        .name(invocation.getArgument(0)).datatype(invocation.getArgument(1))
+                        .conceptClass(invocation.getArgument(2)).build()));
+    }
+
     // =========================================================
     // CREATE MEDICAL RECORD TESTS
     // =========================================================
@@ -135,6 +152,7 @@ class MedicalRecordServiceTest {
             when(medicalRecordRepository.save(any(MedicalRecord.class))).thenReturn(mockRecord);
             when(medicalRecordMapper.toResponse(mockRecord)).thenReturn(mockResponse);
 
+            stubClinicalPersistence();
             MedicalRecordResponse result = medicalRecordService.createMedicalRecord(request);
 
             assertNotNull(result);
@@ -144,6 +162,14 @@ class MedicalRecordServiceTest {
             assertEquals(AppointmentStatus.COMPLETED, mockAppointment.getStatus());
             verify(appointmentRepository, times(1)).save(mockAppointment);
             verify(medicalRecordRepository, times(1)).save(any(MedicalRecord.class));
+            verify(encounterRepository).save(argThat(encounter -> encounter.getVisit() != null
+                    && encounter.getPatient() == mockPatient));
+            verify(obsRepository).saveAll(argThat(values -> {
+                java.util.List<com.thphatts.clinicportal.modules.patient.entity.Obs> saved = new java.util.ArrayList<>();
+                values.forEach(saved::add);
+                return saved.size() == 2 && saved.stream().allMatch(obs -> obs.getEncounter() != null
+                        && obs.getPerson() == mockPatient.getPerson());
+            }));
         }
 
         @Test
@@ -175,12 +201,21 @@ class MedicalRecordServiceTest {
             when(medicalRecordRepository.save(any(MedicalRecord.class))).thenReturn(mockRecord);
             when(medicalRecordMapper.toResponse(mockRecord)).thenReturn(mockResponse);
 
+            stubClinicalPersistence();
             MedicalRecordResponse result = medicalRecordService.createMedicalRecord(requestWithPrescription);
 
             assertNotNull(result);
             verify(productRepository, times(1)).findById(1L);
             verify(productRepository, times(1)).findById(2L);
             verify(medicalRecordRepository, times(1)).save(any(MedicalRecord.class));
+            verify(encounterRepository).save(argThat(encounter -> encounter.getVisit() != null
+                    && encounter.getPatient() == mockPatient));
+            verify(obsRepository).saveAll(argThat(values -> {
+                java.util.List<com.thphatts.clinicportal.modules.patient.entity.Obs> saved = new java.util.ArrayList<>();
+                values.forEach(saved::add);
+                return saved.size() == 2 && saved.stream().allMatch(obs -> obs.getEncounter() != null
+                        && obs.getPerson() == mockPatient.getPerson());
+            }));
         }
 
         @Test

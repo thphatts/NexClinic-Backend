@@ -10,6 +10,7 @@ import com.thphatts.clinicportal.modules.patient.entity.Patient;
 import com.thphatts.clinicportal.modules.user.entity.User;
 import com.thphatts.clinicportal.modules.user.entity.enums.Role;
 import com.thphatts.clinicportal.modules.patient.repository.PatientRepository;
+import com.thphatts.clinicportal.modules.person.repository.PersonRepository;
 import com.thphatts.clinicportal.modules.user.repository.UserRepository;
 import com.thphatts.clinicportal.modules.user.service.impl.AuthServiceImpl;
 import com.thphatts.clinicportal.modules.user.service.RefreshTokenService;
@@ -38,6 +39,7 @@ class AuthServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private PatientRepository patientRepository;
+    @Mock private PersonRepository personRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtTokenProvider tokenProvider;
     @Mock private AuthenticationManager authenticationManager;
@@ -93,9 +95,11 @@ class AuthServiceTest {
             when(userRepository.existsByUsername("testuser")).thenReturn(false);
             when(userRepository.existsByEmail("test@clinic.com")).thenReturn(false);
             when(userRepository.existsByCitizenId("079123456789")).thenReturn(false);
+            when(personRepository.findByPhoneNumber("0901234567")).thenReturn(Optional.empty());
+            when(personRepository.findByCitizenId("079123456789")).thenReturn(Optional.empty());
             when(passwordEncoder.encode("password123")).thenReturn("encoded_password");
             when(userRepository.save(any(User.class))).thenReturn(mockUser);
-            when(patientRepository.findByCitizenId("079123456789")).thenReturn(Optional.empty());
+            when(patientRepository.findByPerson_Id(any())).thenReturn(Optional.empty());
             when(tokenProvider.generateToken(mockUser)).thenReturn("jwt_access_token");
             when(tokenProvider.getJwtExpirationMs()).thenReturn(86400000L);
             when(refreshTokenService.createRefreshToken("user-uuid-001")).thenReturn("raw_refresh_token");
@@ -128,9 +132,12 @@ class AuthServiceTest {
             when(userRepository.existsByUsername("testuser")).thenReturn(false);
             when(userRepository.existsByEmail("test@clinic.com")).thenReturn(false);
             when(userRepository.existsByCitizenId("079123456789")).thenReturn(false);
+            when(personRepository.findByPhoneNumber("0901234567")).thenReturn(Optional.empty());
+            existingPatient.getPerson().setId(10L);
+            when(personRepository.findByCitizenId("079123456789")).thenReturn(Optional.of(existingPatient.getPerson()));
             when(passwordEncoder.encode("password123")).thenReturn("encoded_password");
             when(userRepository.save(any(User.class))).thenReturn(mockUser);
-            when(patientRepository.findByCitizenId("079123456789")).thenReturn(Optional.of(existingPatient));
+            when(patientRepository.findByPerson_Id(10L)).thenReturn(Optional.of(existingPatient));
             when(tokenProvider.generateToken(mockUser)).thenReturn("jwt_access_token");
             when(tokenProvider.getJwtExpirationMs()).thenReturn(86400000L);
             when(refreshTokenService.createRefreshToken("user-uuid-001")).thenReturn("raw_refresh_token");
@@ -140,9 +147,10 @@ class AuthServiceTest {
 
             // Assert
             assertNotNull(result);
-            // Phải update patient cũ (save existingPatient), không tạo patient mới
-            verify(patientRepository, times(1)).save(existingPatient);
-            assertEquals("user-uuid-001", existingPatient.getUserId());
+            verify(patientRepository, never()).save(any(Patient.class));
+            verify(userRepository).save(argThat(user -> user.getPerson() == existingPatient.getPerson()));
+            assertEquals(1L, existingPatient.getId());
+            assertEquals("0901234567", existingPatient.getPerson().getPhoneNumber());
         }
 
         @Test

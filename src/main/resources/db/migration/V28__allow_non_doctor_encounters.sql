@@ -1,0 +1,1 @@
+ALTER TABLE encounters ALTER COLUMN doctor_id DROP NOT NULL;

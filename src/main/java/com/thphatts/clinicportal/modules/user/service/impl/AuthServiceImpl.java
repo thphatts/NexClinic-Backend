@@ -49,6 +49,9 @@ public class AuthServiceImpl implements AuthService {
         String citizenId = normalizeOptional(request.getCitizenId());
         String phone = normalizePhone(request.getPhone());
         String address = (request.getAddress() != null && !request.getAddress().isBlank()) ? request.getAddress().trim() : null;
+        if (citizenId != null && userRepository.existsByCitizenId(citizenId)) {
+            throw new RuntimeException("Số CCCD đã được đăng ký: " + citizenId);
+        }
 
         Person person = personRepository.findByPhoneNumber(phone)
                 .orElseGet(() -> citizenId == null ? null : personRepository.findByCitizenId(citizenId).orElse(null));

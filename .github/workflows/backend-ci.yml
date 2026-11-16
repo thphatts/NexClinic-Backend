@@ -1,41 +1,328 @@
-name: NexClinic Backend CI
+name: Backend CI/CD
 
 on:
-  push:
-    branches: [ main, dev ]
   pull_request:
-    branches: [ main ]
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: '25'
+
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-and-test:
-    name: Build & Unit Test Verification
+  pipeline-checks:
+    name: Workflow, shell scripts, rollback and migrations
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: maven
-
-      - name: Maven Test Compile & Unit Tests
-        run: ./mvnw clean test -DskipITs
-
-      - name: Verify Production Package (JAR Build)
-        run: ./mvnw package -DskipTests
-
-      - name: Trigger Render Deployment Hook
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: false
+      - run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - run: actionlint -shellcheck= .github/workflows/backend-ci.yml
+      - run: bash -n deploy/ec2-deploy.sh
+      - run: docker run --rm -v "$PWD:/src" koalaman/shellcheck:v0.10.0 /src/deploy/ec2-deploy.sh
+      - run: python3 scripts/test_deploy.py
+      - name: Protect existing Flyway migrations
         env:
-          RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [ -n "$RENDER_HOOK" ]; then
-            echo "Triggering Render Auto-Deploy..."
-            curl -X POST "$RENDER_HOOK"
+          if [[ -n "$BASE_SHA" && ! "$BASE_SHA" =~ ^0+$ ]]; then
+            python3 scripts/check_migrations.py "$BASE_SHA"
           else
-            echo "RENDER_DEPLOY_HOOK_URL secret is not set yet. Skipping Render trigger."
+            python3 scripts/check_migrations.py HEAD
           fi
+
+  source-validation:
+    name: Source and compile validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: Check whitespace and merge markers
+        run: |
+          git diff --check
+          if git grep -nE '^(<<<<<<< |=======$|>>>>>>> )' -- src pom.xml Dockerfile; then
+            echo 'Merge conflict markers found.' >&2
+            exit 1
+          fi
+      - name: Validate Maven project
+        run: ./mvnw -B -ntp validate
+      - name: Compile production sources
+        run: ./mvnw -B -ntp -DskipTests compile
+
+  tests:
+    name: Unit tests with PostgreSQL and Redis
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [source-validation, pipeline-checks]
+    services:
+      postgres:
+        image: pgvector/pgvector:pg14
+        env:
+          POSTGRES_DB: clinic_ci
+          POSTGRES_USER: clinic_ci
+          POSTGRES_PASSWORD: clinic_ci_password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U clinic_ci -d clinic_ci"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      SPRING_PROFILES_ACTIVE: test
+      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/clinic_ci
+      DB_USERNAME: clinic_ci
+      DB_PASSWORD: clinic_ci_password
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_EXPIRATION_MS: 3600000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: Generate ephemeral CI JWT secret
+        run: echo "JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')" >> "$GITHUB_ENV"
+      - name: Run all tests
+        run: ./mvnw -B -ntp test
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore
+
+  package:
+    name: Package executable JAR
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - run: ./mvnw -B -ntp -DskipTests package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: target/*.jar
+          if-no-files-found: error
+
+  container-smoke:
+    name: Docker runtime and migration smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: package
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: /tmp/backend-image-context
+      - name: Build CI image
+        run: docker build --pull --file deploy/Dockerfile --tag nexclinic-backend:ci /tmp/backend-image-context
+      - name: Start isolated dependencies
+        run: |
+          docker network create clinic-ci
+          docker run --detach --name clinic-ci-postgres --network clinic-ci \
+            -e POSTGRES_DB=clinic_ci -e POSTGRES_USER=clinic_ci -e POSTGRES_PASSWORD=clinic_ci_password \
+            pgvector/pgvector:pg14
+          docker run --detach --name clinic-ci-redis --network clinic-ci redis:7-alpine
+          for i in $(seq 1 30); do
+            docker exec clinic-ci-postgres pg_isready -U clinic_ci -d clinic_ci && break
+            sleep 2
+          done
+      - name: Generate ephemeral CI JWT secret
+        run: echo "JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')" >> "$GITHUB_ENV"
+      - name: Start application
+        run: |
+          docker run --detach --name nexclinic-app --network clinic-ci -p 18080:8080 \
+            -e SPRING_PROFILES_ACTIVE=test \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://clinic-ci-postgres:5432/clinic_ci \
+            -e DB_USERNAME=clinic_ci -e DB_PASSWORD=clinic_ci_password \
+            -e REDIS_HOST=clinic-ci-redis -e REDIS_PORT=6379 \
+            -e JWT_SECRET -e SPRING_FLYWAY_VALIDATE_ON_MIGRATE=true -e SPRING_FLYWAY_CLEAN_DISABLED=true \
+            nexclinic-backend:ci
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:18080/actuator/health | grep -q '"status":"UP"'; then exit 0; fi
+            sleep 2
+          done
+          docker logs nexclinic-app
+          exit 1
+      - name: Run HTTP and database smoke assertions
+        run: python3 scripts/ci_smoke.py http://127.0.0.1:18080
+      - name: Assert migrations and restart against the migrated database
+        run: |
+          docker exec clinic-ci-postgres psql -U clinic_ci -d clinic_ci -Atc \
+            "SELECT count(*) FROM flyway_schema_history WHERE success = false" | grep -qx 0
+          docker restart nexclinic-app
+          for i in $(seq 1 60); do
+            if curl --fail --silent --max-time 5 http://127.0.0.1:18080/actuator/health | grep -q '"status":"UP"'; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Export tested image
+        run: docker save nexclinic-backend:ci -o /tmp/backend-image.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-image
+          path: /tmp/backend-image.tar
+          retention-days: 3
+      - name: Cleanup containers
+        if: always()
+        run: |
+          docker logs nexclinic-app 2>/dev/null || true
+          docker rm --force nexclinic-app clinic-ci-postgres clinic-ci-redis 2>/dev/null || true
+          docker network rm clinic-ci 2>/dev/null || true
+
+  image-scan:
+    name: Scan image for HIGH/CRITICAL CVEs
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: container-smoke
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-image
+          path: /tmp
+      - name: Install verified Trivy CLI
+        env:
+          TRIVY_VERSION: '0.76.2'
+          TRIVY_SHA256: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf
+        run: |
+          archive="$RUNNER_TEMP/trivy.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            --output "$archive"
+          printf '%s  %s\n' "$TRIVY_SHA256" "$archive" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/trivy-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/trivy-bin" trivy
+          "$RUNNER_TEMP/trivy-bin/trivy" --version
+      - name: Scan tested image archive
+        run: |
+          "$RUNNER_TEMP/trivy-bin/trivy" image --input /tmp/backend-image.tar \
+            --scanners vuln --format table --exit-code 1 --ignore-unfixed \
+            --severity CRITICAL,HIGH | tee trivy-image.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: image-security-report
+          path: trivy-image.txt
+          if-no-files-found: ignore
+
+  publish:
+    name: Publish image to GHCR
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [container-smoke, image-scan, codeql]
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-image
+          path: /tmp
+      - name: Publish the tested and scanned image
+        id: image
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker load -i /tmp/backend-image.tar
+          docker tag nexclinic-backend:ci "$image:$GITHUB_SHA"
+          docker push "$image:$GITHUB_SHA"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image:$GITHUB_SHA")
+          echo "image=$digest" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to EC2 with rollback
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: publish
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure pinned SSH host key
+        env:
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$EC2_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+      - name: Upload deployment files
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          scp -i ~/.ssh/ec2_key -o StrictHostKeyChecking=yes \
+            deploy/docker-compose.ec2.yml deploy/ec2-deploy.sh \
+            "$EC2_USER@$EC2_HOST:/tmp/"
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=yes "$EC2_USER@$EC2_HOST" \
+            'sudo -n install -d -m 0750 /opt/nexclinic && sudo -n install -m 0644 /tmp/docker-compose.ec2.yml /opt/nexclinic/docker-compose.ec2.yml && sudo -n install -m 0750 /tmp/ec2-deploy.sh /opt/nexclinic/ec2-deploy.sh'
+      - name: Deploy immutable image and verify health
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          IMAGE: ${{ needs.publish.outputs.image }}
+        run: |
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=yes "$EC2_USER@$EC2_HOST" \
+            "sudo -n /opt/nexclinic/ec2-deploy.sh '$IMAGE'"
+
+  codeql:
+    name: Java security analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          build-mode: manual
+      - run: ./mvnw -B -ntp -DskipTests clean compile
+      - uses: github/codeql-action/analyze@v3

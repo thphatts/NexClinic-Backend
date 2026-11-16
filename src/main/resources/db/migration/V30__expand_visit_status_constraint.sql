@@ -1,0 +1,3 @@
+ALTER TABLE visits DROP CONSTRAINT IF EXISTS chk_visits_status;
+ALTER TABLE visits ADD CONSTRAINT chk_visits_status
+    CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'ACTIVE', 'CLOSED'));

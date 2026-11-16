@@ -16,6 +16,8 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
 
     Optional<Doctor> findByUserId(String userId);
 
+    Optional<Doctor> findByPerson_Id(Long personId);
+
     @Query("select d from Doctor d join d.person.attributes a where a.attributeType = 'EMAIL' and a.value = :email")
     Optional<Doctor> findByEmail(@Param("email") String email);
 
