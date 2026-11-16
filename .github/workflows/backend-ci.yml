@@ -230,7 +230,7 @@ jobs:
         run: |
           "$RUNNER_TEMP/trivy-bin/trivy" image --input /tmp/backend-image.tar \
             --scanners vuln --format table --exit-code 1 --ignore-unfixed \
-            --severity CRITICAL,HIGH --output trivy-image.txt
+            --severity CRITICAL,HIGH | tee trivy-image.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
