@@ -213,16 +213,24 @@ jobs:
         with:
           name: backend-image
           path: /tmp
-      - run: docker load -i /tmp/backend-image.tar
-      - uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
-        with:
-          image-ref: nexclinic-backend:ci
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-          output: trivy-image.txt
+      - name: Install verified Trivy CLI
+        env:
+          TRIVY_VERSION: '0.76.2'
+          TRIVY_SHA256: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf
+        run: |
+          archive="$RUNNER_TEMP/trivy.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            --output "$archive"
+          printf '%s  %s\n' "$TRIVY_SHA256" "$archive" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/trivy-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/trivy-bin" trivy
+          "$RUNNER_TEMP/trivy-bin/trivy" --version
+      - name: Scan tested image archive
+        run: |
+          "$RUNNER_TEMP/trivy-bin/trivy" image --input /tmp/backend-image.tar \
+            --scanners vuln --format table --exit-code 1 --ignore-unfixed \
+            --severity CRITICAL,HIGH --output trivy-image.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

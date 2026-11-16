@@ -11,7 +11,7 @@ Workflow nằm trong **repo NexClinic-Backend**, các đường dẫn tính từ
 | `tests` | Toàn bộ JUnit/Mockito/security tests; cung cấp PostgreSQL pgvector + Redis cho test cần DB; tải báo cáo Surefire kể cả khi lỗi |
 | `package` | Đóng gói JAR khi test xanh, lưu artifact |
 | `container-smoke` | Build Docker, DB rỗng riêng biệt, Flyway strict + Hibernate validate lúc startup, health, public/protected routes, register/login/profile với dữ liệu giả; restart cùng DB để kiểm tra startup lần 2 |
-| `image-scan` | Trivy quét OS/JAR trong chính image vừa test, chặn HIGH/CRITICAL có bản vá; lưu báo cáo artifact |
+| `image-scan` | Trivy CLI quét OS/JAR trong chính image vừa test, chặn HIGH/CRITICAL có bản vá; lưu báo cáo artifact |
 | `codeql` | Phân tích bảo mật Java; là gate trước publish |
 | `publish` | Push chính image đã test và scan lên `ghcr.io/<owner>/<repo>:<full-commit-sha>`, xuất digest |
 | `deploy` | SSH xác thực host key, dùng digest, khóa chống deploy đồng thời, Docker Compose chờ healthy, rollback image khi lỗi |
@@ -19,6 +19,8 @@ Workflow nằm trong **repo NexClinic-Backend**, các đường dẫn tính từ
 Không dùng `continue-on-error` để bỏ qua test. Không cần CI secrets cho PR fork: JWT key CI sinh ngẫu nhiên theo job và chỉ dùng trong DB tạm. Các test đang `@Disabled` không được tự động coi là integration coverage; smoke container kiểm tra startup/migration thật nhưng không thay thế test đầy đủ mọi nghiệp vụ.
 
 CodeQL trên repo private cần GitHub Code Security được bật; nếu chưa có, bật tính năng hoặc chọn scanner tương đương trước khi đưa pipeline vào dùng. CI runner và EC2 mặc định x86_64/amd64; chưa cấu hình Graviton/arm64.
+
+Trivy CLI được tải từ GitHub release chính thức, ghim version và kiểm SHA-256 trước khi chạy. Không dùng composite action `trivy-action`/`setup-trivy`. Khi nâng cấp, cập nhật cùng lúc `TRIVY_VERSION` và `TRIVY_SHA256` trong workflow theo checksum chính thức.
 
 ## Chuẩn bị EC2 một lần
 
