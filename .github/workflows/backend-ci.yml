@@ -110,7 +110,7 @@ jobs:
         run: ./mvnw -B -ntp test
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-test-reports
           path: target/surefire-reports/
@@ -129,7 +129,7 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
       - run: ./mvnw -B -ntp -DskipTests package
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: backend-jar
           path: target/*.jar
@@ -190,7 +190,7 @@ jobs:
           exit 1
       - name: Export tested image
         run: docker save nexclinic-backend:ci -o /tmp/backend-image.tar
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: backend-image
           path: /tmp/backend-image.tar
@@ -231,7 +231,7 @@ jobs:
           "$RUNNER_TEMP/trivy-bin/trivy" image --input /tmp/backend-image.tar \
             --scanners vuln --format table --exit-code 1 --ignore-unfixed \
             --severity CRITICAL,HIGH | tee trivy-image.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: image-security-report
