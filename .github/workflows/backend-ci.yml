@@ -303,6 +303,25 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
           printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
+          cat > ~/.ssh/config <<'EOF'
+          Host *
+            BatchMode yes
+            IdentitiesOnly yes
+            ConnectTimeout 15
+            ConnectionAttempts 1
+            ServerAliveInterval 15
+            ServerAliveCountMax 2
+          EOF
+          chmod 600 ~/.ssh/config
+      - name: Verify SSH connection before upload
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          if ! ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=yes "$EC2_USER@$EC2_HOST" true; then
+            echo "::error::SSH connection failed. Read the SSH error above: timeout/refused = network or SSH service; Permission denied = user/private key; Host key verification failed = EC2_KNOWN_HOSTS. See docs/EC2-DEPLOY.md."
+            exit 1
+          fi
       - name: Upload deployment files
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
