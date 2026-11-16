@@ -3,6 +3,7 @@ package com.thphatts.clinicportal.modules.appointment.entity.enums;
 public enum AppointmentStatus {
     PENDING,
     CONFIRMED,
+    CHECKED_IN,
     COMPLETED,
     CANCELLED
 }

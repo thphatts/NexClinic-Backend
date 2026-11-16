@@ -4,5 +4,6 @@ public enum DataType {
     NUMERIC,
     TEXT,
     CODED,
-    BOOLEAN
+    BOOLEAN,
+    DATETIME
 }
