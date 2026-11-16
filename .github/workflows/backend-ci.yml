@@ -34,6 +34,7 @@ jobs:
       - run: bash -n deploy/ec2-deploy.sh
       - run: docker run --rm -v "$PWD:/src" koalaman/shellcheck:v0.10.0 /src/deploy/ec2-deploy.sh
       - run: python3 scripts/test_deploy.py
+      - run: python3 scripts/test_publish.py
       - name: Protect existing Flyway migrations
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -265,8 +266,16 @@ jobs:
           docker load -i /tmp/backend-image.tar
           docker tag nexclinic-backend:ci "$image:$GITHUB_SHA"
           docker push "$image:$GITHUB_SHA"
-          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image:$GITHUB_SHA")
-          echo "image=$digest" >> "$GITHUB_OUTPUT"
+          repo_digests=$(docker inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image:$GITHUB_SHA")
+          digest=''
+          while IFS= read -r candidate; do
+            if [[ "$candidate" == "$image@"* ]]; then
+              digest="${candidate#"$image@"}"
+              break
+            fi
+          done <<< "$repo_digests"
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo 'Missing valid digest for the published GHCR repository' >&2; exit 1; }
+          echo "image=$image@$digest" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Deploy to EC2 with rollback
