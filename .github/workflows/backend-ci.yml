@@ -142,7 +142,7 @@ jobs:
     needs: package
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: backend-jar
           path: /tmp/backend-image-context
@@ -209,7 +209,7 @@ jobs:
     needs: container-smoke
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: backend-image
           path: /tmp
@@ -251,7 +251,7 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: backend-image
           path: /tmp
