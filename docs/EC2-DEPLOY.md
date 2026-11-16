@@ -67,6 +67,22 @@ GitHub → Settings → Environments → tạo `production`, cho phép branch `m
 
 Không dùng `StrictHostKeyChecking=no`. Không cần AWS access key vì workflow không gọi AWS API. EC2, DNS, TLS, reverse proxy và secrets chưa được workflow tự tạo.
 
+### Khi production lỗi ở SSH/upload
+
+`Validate production SSH secrets` thành công chỉ xác nhận secrets không rỗng. Bước `Verify SSH connection before upload` kiểm tra kết nối và đăng nhập trước SCP; giới hạn chờ kết nối 15 giây và không chờ nhập mật khẩu tương tác.
+
+| Lỗi SSH trong log | Kiểm tra trên EC2/GitHub |
+| --- | --- |
+| `Connection timed out` | Public IP trong `EC2_HOST`, route Internet, Security Group/NACL và firewall phải cho TCP 22 từ **runner**. Rule `My IP` chỉ cho máy cá nhân, không cho GitHub hosted runner. Dùng runner có IP cố định, runner tự quản hoặc VPN để giới hạn nguồn truy cập. |
+| `Connection refused` | SSH có đang chạy và lắng nghe cổng 22: `sudo systemctl status ssh`, `sudo ss -ltnp 'sport = :22'`. |
+| `Permission denied (publickey)` | `EC2_USER` đúng với AMI (Ubuntu thường là `ubuntu`); private key tương ứng public key trong `~/.ssh/authorized_keys` của user này. |
+| `Host key verification failed` | `EC2_KNOWN_HOSTS` phải chứa hostname/IP khớp `EC2_HOST` và public host key thật của EC2. Xác minh qua console trước khi cập nhật, không bỏ kiểm tra host key. |
+| `Could not resolve hostname` | `EC2_HOST` chỉ chứa IP/hostname, không có `http://`, đường dẫn, cổng hay lệnh SSH. |
+
+Trên EC2 có thể lấy public host key bằng `sudo cat /etc/ssh/ssh_host_ed25519_key.pub`. Ghép hostname/IP phía trước để thành dòng known_hosts. Đây là **host key**, khác với key đăng nhập của `EC2_SSH_PRIVATE_KEY`; không gửi private key vào log hay chat.
+
+Nếu server đang chạy stack `clinic-portal-deploy`, workflow này không cập nhật service `backend` của stack đó: nó tạo project `nexclinic` riêng, app bind host `127.0.0.1:8080`. Proxy đang dùng `proxy_pass http://backend:8080` vẫn phục vụ backend cũ. Cần lập kế hoạch chuyển proxy và dữ liệu trước khi chuyển production; `127.0.0.1` bên trong container proxy không phải host EC2. Không xóa volumes hoặc dừng database cũ để thử sửa lỗi SSH.
+
 ## TLS và WebSocket
 
 Cấu hình Nginx/Caddy phục vụ `https://api.example.com`, proxy tới `127.0.0.1:8080`, giữ `Host`, `X-Forwarded-For`, `X-Forwarded-Proto`. `/ws` cần HTTP/1.1, header `Upgrade`/`Connection` và timeout phù hợp. Cấp chứng chỉ TLS trước khi frontend production gọi API; auth refresh cookie hiện cần Secure/HTTPS. `FRONTEND_URL` phải khớp origin FE, `VNPAY_RETURN_URL` trỏ về domain API thật.

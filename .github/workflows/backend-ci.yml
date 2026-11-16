@@ -34,6 +34,7 @@ jobs:
       - run: bash -n deploy/ec2-deploy.sh
       - run: docker run --rm -v "$PWD:/src" koalaman/shellcheck:v0.10.0 /src/deploy/ec2-deploy.sh
       - run: python3 scripts/test_deploy.py
+      - run: python3 scripts/test_publish.py
       - name: Protect existing Flyway migrations
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -265,8 +266,16 @@ jobs:
           docker load -i /tmp/backend-image.tar
           docker tag nexclinic-backend:ci "$image:$GITHUB_SHA"
           docker push "$image:$GITHUB_SHA"
-          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image:$GITHUB_SHA")
-          echo "image=$digest" >> "$GITHUB_OUTPUT"
+          repo_digests=$(docker inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image:$GITHUB_SHA")
+          digest=''
+          while IFS= read -r candidate; do
+            if [[ "$candidate" == "$image@"* ]]; then
+              digest="${candidate#"$image@"}"
+              break
+            fi
+          done <<< "$repo_digests"
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo 'Missing valid digest for the published GHCR repository' >&2; exit 1; }
+          echo "image=$image@$digest" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Deploy to EC2 with rollback
@@ -303,6 +312,25 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
           printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
+          cat > ~/.ssh/config <<'EOF'
+          Host *
+            BatchMode yes
+            IdentitiesOnly yes
+            ConnectTimeout 15
+            ConnectionAttempts 1
+            ServerAliveInterval 15
+            ServerAliveCountMax 2
+          EOF
+          chmod 600 ~/.ssh/config
+      - name: Verify SSH connection before upload
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          if ! ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=yes "$EC2_USER@$EC2_HOST" true; then
+            echo "::error::SSH connection failed. Read the SSH error above: timeout/refused = network or SSH service; Permission denied = user/private key; Host key verification failed = EC2_KNOWN_HOSTS. See docs/EC2-DEPLOY.md."
+            exit 1
+          fi
       - name: Upload deployment files
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
