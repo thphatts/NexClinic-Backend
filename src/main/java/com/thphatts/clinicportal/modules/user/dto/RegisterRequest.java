@@ -40,7 +40,6 @@ public class RegisterRequest {
 
     private String gender;
 
-    @NotBlank(message = "CCCD không được để trống")
     @Cccd(message = "CCCD không hợp lệ (phải đủ 12 chữ số)")
     private String citizenId;
 }
