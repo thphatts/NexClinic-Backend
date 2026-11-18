@@ -7,9 +7,6 @@ public class CccdValidator implements ConstraintValidator<Cccd, String> {
 
     @Override
     public boolean isValid(String value, ConstraintValidatorContext context) {
-        if (value == null) {
-            return false;
-        }
-        return value.matches("\\d{12}");
+        return value == null || value.isBlank() || value.matches("\\d{12}");
     }
 }
