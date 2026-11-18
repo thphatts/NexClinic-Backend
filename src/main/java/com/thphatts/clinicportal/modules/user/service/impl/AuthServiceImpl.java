@@ -36,6 +36,11 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResult register(RegisterRequest request) {
+        String citizenId = normalizeOptional(request.getCitizenId());
+        if (citizenId == null || !citizenId.matches("\\d{12}")) {
+            throw new IllegalArgumentException("CCCD không hợp lệ (phải đủ 12 chữ số)");
+        }
+
         String username = request.getUsername().trim();
         String email = request.getEmail().trim().toLowerCase();
         if (userRepository.existsByUsername(username)) {
@@ -46,15 +51,19 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Email đã được đăng ký: " + email);
         }
 
-        String citizenId = normalizeOptional(request.getCitizenId());
         String phone = normalizePhone(request.getPhone());
         String address = (request.getAddress() != null && !request.getAddress().isBlank()) ? request.getAddress().trim() : null;
         if (citizenId != null && userRepository.existsByCitizenId(citizenId)) {
             throw new RuntimeException("Số CCCD đã được đăng ký: " + citizenId);
         }
 
-        Person person = personRepository.findByPhoneNumber(phone)
-                .orElseGet(() -> citizenId == null ? null : personRepository.findByCitizenId(citizenId).orElse(null));
+        Person personByPhone = personRepository.findByPhoneNumber(phone).orElse(null);
+        Person personByCitizenId = personRepository.findByCitizenId(citizenId).orElse(null);
+        if (personByPhone != null && personByCitizenId != null
+                && !personByPhone.getId().equals(personByCitizenId.getId())) {
+            throw new RuntimeException("Số điện thoại và CCCD thuộc về hai hồ sơ khác nhau.");
+        }
+        Person person = personByPhone != null ? personByPhone : personByCitizenId;
         if (person != null && userRepository.existsByPerson_Id(person.getId())) {
             throw new RuntimeException("Hồ sơ này đã được liên kết với một tài khoản.");
         }

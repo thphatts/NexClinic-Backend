@@ -197,6 +197,18 @@ class AuthServiceTest {
             assertTrue(ex.getMessage().contains("Số CCCD đã được đăng ký"));
             verify(userRepository, never()).save(any());
         }
+
+        @Test
+        @DisplayName("Đăng ký thất bại - CCCD bắt buộc gồm 12 chữ số")
+        void register_Fail_CitizenIdMissingOrMalformed() {
+            for (String citizenId : new String[]{null, "", "123", "07912345678A"}) {
+                registerRequest.setCitizenId(citizenId);
+
+                assertThrows(IllegalArgumentException.class, () -> authService.register(registerRequest));
+            }
+
+            verifyNoInteractions(userRepository, personRepository, passwordEncoder);
+        }
     }
 
     // =========================================================
