@@ -14,6 +14,9 @@ public interface DoctorScheduleService {
 
     List<DoctorScheduleResponse> getSchedulesByDoctor(Long doctorId);
 
+    DoctorScheduleResponse updateSchedule(Long doctorId, Long scheduleId, DoctorScheduleRequest request,
+                                          UserPrincipal currentUser);
+
     void deleteSchedule(Long doctorId, Long scheduleId, UserPrincipal currentUser);
 
     void addLeave(Long doctorId, LocalDate date, String reason, UserPrincipal currentUser);

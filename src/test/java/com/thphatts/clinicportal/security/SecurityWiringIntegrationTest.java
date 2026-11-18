@@ -1,6 +1,8 @@
 package com.thphatts.clinicportal.security;
 
 import com.thphatts.clinicportal.modules.doctor.controller.DoctorScheduleController;
+import com.thphatts.clinicportal.modules.doctor.dto.DoctorScheduleRequest;
+import com.thphatts.clinicportal.modules.doctor.dto.DoctorScheduleResponse;
 import com.thphatts.clinicportal.modules.patient.controller.MedicalRecordController;
 import com.thphatts.clinicportal.config.security.CustomUserDetailsService;
 import com.thphatts.clinicportal.config.security.JwtAuthenticationFilter;
@@ -19,10 +21,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalTime;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -30,12 +34,12 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
 
 @WebMvcTest(controllers = {MedicalRecordController.class, DoctorScheduleController.class})
 @Import({com.thphatts.clinicportal.config.security.SecurityConfig.class, JwtAuthenticationFilter.class, JwtTokenProvider.class, CustomUserDetailsService.class})
@@ -45,6 +49,9 @@ import org.springframework.context.annotation.Import;
 })
 @DisplayName("Integration Tests: Spring Security & JWT Filter Wiring")
 class SecurityWiringIntegrationTest {
+
+    private static final String SHIFT_PAYLOAD =
+            "{\"dayOfWeek\":2,\"startTime\":\"09:00\",\"endTime\":\"10:00\",\"slotDurationMinutes\":15}";
 
     @Autowired
     private MockMvc mockMvc;
@@ -118,5 +125,37 @@ class SecurityWiringIntegrationTest {
         mockMvc.perform(get("/api/v1/doctors/1/schedules")
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void adminCanUpdateShiftWithMinutePrecisionTimes() throws Exception {
+        User admin = User.builder().id("admin").username("admin").role(Role.ROLE_ADMIN).build();
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+        LocalTime start = LocalTime.of(9, 0);
+        LocalTime end = LocalTime.of(10, 0);
+        when(doctorScheduleService.updateSchedule(eq(1L), eq(5L), eq(new DoctorScheduleRequest(2, start, end, 15)),
+                any(UserPrincipal.class)))
+                .thenReturn(new DoctorScheduleResponse(5L, 1L, 2, start, end, 15, true));
+
+        mockMvc.perform(put("/api/v1/doctors/1/schedules/5")
+                        .header("Authorization", "Bearer " + jwtTokenProvider.generateToken(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(SHIFT_PAYLOAD))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.id").value(5))
+                .andExpect(jsonPath("$.result.slotDurationMinutes").value(15));
+    }
+
+    @Test
+    void patientCannotUpdateShift() throws Exception {
+        User patient = User.builder().id("patient").username("patient").role(Role.ROLE_PATIENT).build();
+        when(userRepository.findByUsername("patient")).thenReturn(Optional.of(patient));
+
+        mockMvc.perform(put("/api/v1/doctors/1/schedules/5")
+                        .header("Authorization", "Bearer " + jwtTokenProvider.generateToken(patient))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(SHIFT_PAYLOAD))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(doctorScheduleService);
     }
 }
