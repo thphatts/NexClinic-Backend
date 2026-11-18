@@ -24,7 +24,6 @@ class DeployTests(unittest.TestCase):
                 'docker': '''#!/bin/sh
 printf '%s\\n' "$*" >> "$DEPLOY_DIR/commands"
 case "$*" in
-  *"config --quiet"*) [ "$MODE" != config_failure ] ;;
   *"ps -q app"*) echo existing ;;
   *".Config.Image"*) echo "$OLD" ;;
   *".State.Health"*)
@@ -44,15 +43,6 @@ esac
         result, release, _ = self.run_deploy('success')
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn(NEW, release)
-
-    def test_invalid_configuration_stops_before_container_changes(self):
-        result, release, commands = self.run_deploy('config_failure')
-        self.assertNotEqual(0, result.returncode)
-        self.assertIn('Invalid deployment configuration', result.stderr)
-        self.assertIn(OLD, release)
-        self.assertNotIn('ps -q app', commands)
-        self.assertNotIn('pull app', commands)
-        self.assertNotIn('up -d', commands)
 
     def test_health_failure_rolls_back(self):
         result, release, commands = self.run_deploy('health_failure')

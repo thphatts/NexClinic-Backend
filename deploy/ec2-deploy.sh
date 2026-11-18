@@ -7,7 +7,6 @@ RELEASE_ENV="$DEPLOY_DIR/release.env"
 IMAGE="${1:?Usage: ec2-deploy.sh ghcr.io/owner/image@sha256:digest}"
 [[ "$IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]] || { echo 'Invalid image digest' >&2; exit 1; }
 [[ -f "$DEPLOY_DIR/.env" ]] || { echo "Missing $DEPLOY_DIR/.env" >&2; exit 1; }
-
 exec 9>"$DEPLOY_DIR/deploy.lock"
 flock -n 9 || { echo 'Another deployment is running' >&2; exit 1; }
 
@@ -17,10 +16,6 @@ compose() {
 
 # First deployment has no previous release file.
 [[ -f "$RELEASE_ENV" ]] || printf 'IMAGE=%s\n' "$IMAGE" > "$RELEASE_ENV"
-if ! compose config --quiet; then
-  echo "Invalid deployment configuration. Set the required variables shown above in $DEPLOY_DIR/.env; see deploy/production.env.example." >&2
-  exit 1
-fi
 container=$(compose ps -q app)
 CURRENT_IMAGE=''
 if [[ -n "$container" ]]; then
@@ -58,6 +53,7 @@ rollback() {
 
 printf 'IMAGE=%s\n' "$IMAGE" > "$RELEASE_ENV"
 trap rollback ERR
+compose config --quiet
 compose pull app
 compose up -d --wait --wait-timeout 180 postgres_db redis app
 healthy

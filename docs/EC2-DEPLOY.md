@@ -41,16 +41,6 @@ sudo install -d -m 0750 /opt/nexclinic
 sudo chmod 600 /opt/nexclinic/.env
 ```
 
-Nếu deploy báo `required variable ... is missing a value`, sửa file **trên EC2** bằng `sudo nano /opt/nexclinic/.env`, đối chiếu tên biến chính xác với `deploy/production.env.example`. Compose này cần `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `JWT_SECRET`, `FRONTEND_URL`, `VNPAY_TMN_CODE`, `VNPAY_SECRET_KEY`, `VNPAY_PAY_URL`, `VNPAY_RETURN_URL`. Các tên như `DB_USERNAME`/`DB_PASSWORD` không thay thế `POSTGRES_USER`/`POSTGRES_PASSWORD` trong file này. Giữ nguyên thông tin đăng nhập của database đã khởi tạo; không đổi ngẫu nhiên mật khẩu để thử sửa lỗi.
-
-Kiểm tra mà không in giá trị secrets (sau khi script đã tạo `release.env`):
-
-```sh
-sudo docker compose --project-name nexclinic --env-file /opt/nexclinic/.env --env-file /opt/nexclinic/release.env -f /opt/nexclinic/docker-compose.ec2.yml config --quiet
-```
-
-Không dùng `source .env` hay đăng nội dung `.env` vào log/chat. `release.env` chỉ lưu `IMAGE`; các cấu hình production khác nằm trong `.env`. Workflow không tự tạo credentials hay ghi đè `.env` trên EC2.
-
 Không đưa `.env`, PEM, database dump vào Git. Giữ DB/Redis nội bộ trong network Docker, không mở 5432/6379 trong Security Group. Cho SSH từ runner hoặc mạng quản trị được phép; GitHub hosted runner có IP thay đổi, cần giải pháp mạng phù hợp (runner tự quản/VPN nếu không muốn mở SSH công khai). App bind `127.0.0.1:8080` nên truy cập Internet phải qua reverse proxy.
 
 Đây là deployment mới với volumes PostgreSQL/Redis tên project `nexclinic`. **Không tự động dùng hay di chuyển database từ Compose dev `postgres_data`.** Nếu đã có dữ liệu, phải backup và import/điều chỉnh storage trước. Script không cài Docker, provision EC2 hay chuyển dữ liệu.
