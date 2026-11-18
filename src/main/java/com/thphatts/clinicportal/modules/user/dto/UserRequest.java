@@ -27,7 +27,8 @@ public record UserRequest(
         @Size(min = 6, message = "Mật khẩu phải từ 6 ký tự trở lên")
         String password,
 
-        @Cccd(message = "Số CCCD không hợp lệ")
+        @NotBlank(message = "CCCD không được để trống")
+        @Cccd(message = "Số CCCD không hợp lệ (phải đủ 12 chữ số)")
         String citizenId,
 
         Role role

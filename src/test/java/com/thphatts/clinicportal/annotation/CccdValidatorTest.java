@@ -10,10 +10,10 @@ class CccdValidatorTest {
     private final CccdValidator validator = new CccdValidator();
 
     @Test
-    void acceptsMissingOptionalCitizenId() {
-        assertTrue(validator.isValid(null, null));
-        assertTrue(validator.isValid("", null));
-        assertTrue(validator.isValid("   ", null));
+    void rejectsMissingCitizenId() {
+        assertFalse(validator.isValid(null, null));
+        assertFalse(validator.isValid("", null));
+        assertFalse(validator.isValid("   ", null));
     }
 
     @Test

@@ -55,6 +55,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @org.springframework.transaction.annotation.Transactional
     public void update(String id, UserRequest rq) {
+        validateCitizenId(rq.citizenId());
         Optional<User> user = userRepository.findById(id);
         if (user.isEmpty()) {
             throw new RuntimeException("User not exits!");
@@ -111,5 +112,11 @@ public class UserServiceImpl implements UserService {
 
     private String normalizePhone(String phone) {
         return phone.replaceAll("[\\s()-]", "").trim();
+    }
+
+    private void validateCitizenId(String citizenId) {
+        if (citizenId == null || !citizenId.matches("\\d{12}")) {
+            throw new IllegalArgumentException("CCCD không hợp lệ (phải đủ 12 chữ số)");
+        }
     }
 }
