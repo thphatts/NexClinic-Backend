@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DoctorScheduleRepository extends JpaRepository<DoctorSchedule, Long> {
@@ -13,5 +14,5 @@ public interface DoctorScheduleRepository extends JpaRepository<DoctorSchedule, 
 
     List<DoctorSchedule> findByDoctorIdOrderByDayOfWeekAscStartTimeAsc(Long doctorId);
 
-    boolean existsByDoctorIdAndDayOfWeek(Long doctorId, Integer dayOfWeek);
+    Optional<DoctorSchedule> findByIdAndDoctorId(Long id, Long doctorId);
 }

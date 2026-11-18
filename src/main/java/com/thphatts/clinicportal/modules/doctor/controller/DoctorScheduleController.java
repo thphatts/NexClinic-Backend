@@ -41,6 +41,17 @@ public class DoctorScheduleController extends BaseController {
         return ApiResponse.success(doctorScheduleService.getSchedulesByDoctor(doctorId));
     }
 
+    @PutMapping("/{scheduleId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR')")
+    public ApiResponse<DoctorScheduleResponse> updateSchedule(
+            @PathVariable Long doctorId,
+            @PathVariable Long scheduleId,
+            @Valid @RequestBody DoctorScheduleRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        return ApiResponse.success(doctorScheduleService.updateSchedule(doctorId, scheduleId, request, currentUser));
+    }
+
     @DeleteMapping("/{scheduleId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR')")
     public ApiResponse<String> deleteSchedule(

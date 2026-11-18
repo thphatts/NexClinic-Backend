@@ -19,19 +19,20 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class DoctorScheduleServiceImpl implements DoctorScheduleService {
 
     private static final DateTimeFormatter HHMM = DateTimeFormatter.ofPattern("HH:mm");
+    private static final Pattern SLOT_LABEL = Pattern.compile("([01]\\d|2[0-3]):[0-5]\\d - ([01]\\d|2[0-3]):[0-5]\\d");
 
     private final DoctorScheduleRepository scheduleRepository;
     private final DoctorLeaveRepository leaveRepository;
@@ -47,21 +48,9 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bác sĩ với ID: " + doctorId));
 
-        if (!request.endTime().isAfter(request.startTime())) {
-            throw new RuntimeException("Giờ kết thúc phải sau giờ bắt đầu");
-        }
-
-        DoctorSchedule schedule = DoctorSchedule.builder()
-                .doctor(doctor)
-                .dayOfWeek(request.dayOfWeek())
-                .startTime(request.startTime())
-                .endTime(request.endTime())
-                .slotDurationMinutes(request.slotDurationMinutes() != null ? request.slotDurationMinutes() : 30)
-                .active(true)
-                .build();
-
-        DoctorSchedule saved = scheduleRepository.save(schedule);
-        return toResponse(saved);
+        DoctorSchedule schedule = DoctorSchedule.builder().doctor(doctor).build();
+        applySchedule(schedule, request);
+        return toResponse(scheduleRepository.save(schedule));
     }
 
     @Override
@@ -73,15 +62,47 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
 
     @Override
     @Transactional
+    public DoctorScheduleResponse updateSchedule(Long doctorId, Long scheduleId, DoctorScheduleRequest request,
+                                                 UserPrincipal currentUser) {
+        checkWriteAccess(doctorId, currentUser);
+        DoctorSchedule schedule = getDoctorSchedule(doctorId, scheduleId);
+        applySchedule(schedule, request);
+        return toResponse(schedule);
+    }
+
+    @Override
+    @Transactional
     public void deleteSchedule(Long doctorId, Long scheduleId, UserPrincipal currentUser) {
         checkWriteAccess(doctorId, currentUser);
+        scheduleRepository.delete(getDoctorSchedule(doctorId, scheduleId));
+    }
 
-        DoctorSchedule schedule = scheduleRepository.findById(scheduleId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy lịch làm việc với ID: " + scheduleId));
-        if (!schedule.getDoctor().getId().equals(doctorId)) {
-            throw new RuntimeException("Lịch làm việc không thuộc về bác sĩ này");
+    private DoctorSchedule getDoctorSchedule(Long doctorId, Long scheduleId) {
+        return scheduleRepository.findByIdAndDoctorId(scheduleId, doctorId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy ca trực của bác sĩ này"));
+    }
+
+    private void applySchedule(DoctorSchedule schedule, DoctorScheduleRequest request) {
+        LocalTime start = request.startTime();
+        LocalTime end = request.endTime();
+        int duration = request.slotDurationMinutes() != null ? request.slotDurationMinutes() : 30;
+        if (!end.isAfter(start)) {
+            throw new IllegalArgumentException("Giờ kết thúc phải sau giờ bắt đầu");
         }
-        scheduleRepository.delete(schedule);
+        if (duration > Duration.between(start, end).toMinutes()) {
+            throw new IllegalArgumentException("Thời lượng mỗi lượt khám không được dài hơn ca trực");
+        }
+        if (Boolean.TRUE.equals(schedule.getActive()) && scheduleRepository
+                .findByDoctorIdAndDayOfWeekAndActiveTrue(schedule.getDoctor().getId(), request.dayOfWeek()).stream()
+                .anyMatch(other -> !other.getId().equals(schedule.getId())
+                        && start.isBefore(other.getEndTime()) && end.isAfter(other.getStartTime()))) {
+            throw new IllegalArgumentException("Khung giờ này trùng với một ca trực khác của bác sĩ");
+        }
+
+        schedule.setDayOfWeek(request.dayOfWeek());
+        schedule.setStartTime(start);
+        schedule.setEndTime(end);
+        schedule.setSlotDurationMinutes(duration);
     }
 
     @Override
@@ -123,12 +144,12 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
             return List.of();
         }
 
-        Set<String> bookedSlots = appointmentRepository
+        List<String> bookedSlots = appointmentRepository
                 .findByDoctorIdAndAppointmentDate(doctorId, date)
                 .stream()
                 .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED)
                 .map(a -> a.getTimeSlot())
-                .collect(Collectors.toSet());
+                .toList();
 
         List<AvailableSlotResponse> result = new ArrayList<>();
         LocalTime now = LocalTime.now();
@@ -138,15 +159,14 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
             LocalTime cursor = schedule.getStartTime();
             int duration = schedule.getSlotDurationMinutes();
 
-            while (cursor.plusMinutes(duration).compareTo(schedule.getEndTime()) <= 0) {
+            while (duration > 0 && duration <= Duration.between(cursor, schedule.getEndTime()).toMinutes()) {
                 LocalTime slotEnd = cursor.plusMinutes(duration);
-                String label = cursor.format(HHMM) + " - " + slotEnd.format(HHMM);
+                String startLabel = cursor.format(HHMM);
+                String endLabel = slotEnd.format(HHMM);
 
                 boolean isPast = isToday && cursor.isBefore(now);
-                boolean isBooked = bookedSlots.contains(label);
-
-                if (!isPast && !isBooked) {
-                    result.add(new AvailableSlotResponse(date, cursor, slotEnd, label));
+                if (!isPast && bookedSlots.stream().noneMatch(booked -> overlapsBookedSlot(booked, startLabel, endLabel))) {
+                    result.add(new AvailableSlotResponse(date, cursor, slotEnd, startLabel + " - " + endLabel));
                 }
 
                 cursor = slotEnd;
@@ -156,10 +176,13 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         return result;
     }
 
-    /**
-     * Kiểm tra quyền ghi (create/delete schedule, add leave) — giống pattern checkReadAccess
-     * bên MedicalRecordServiceImpl.
-     */
+    private boolean overlapsBookedSlot(String booked, String start, String end) {
+        // Stored appointment labels use fixed-width HH:mm times, so text order is time order.
+        return SLOT_LABEL.matcher(booked).matches()
+                && start.compareTo(booked.substring(8)) < 0
+                && end.compareTo(booked.substring(0, 5)) > 0;
+    }
+
     private void checkWriteAccess(Long doctorId, UserPrincipal currentUser) {
         if (currentUser == null) {
             throw new AccessDeniedException("Vui lòng đăng nhập để thực hiện thao tác");
