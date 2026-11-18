@@ -9,7 +9,6 @@ import com.thphatts.clinicportal.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import com.thphatts.clinicportal.modules.user.entity.enums.Role;
 import com.thphatts.clinicportal.modules.person.repository.PersonRepository;
-import com.thphatts.clinicportal.modules.person.entity.Person;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -28,7 +27,6 @@ public class UserServiceImpl implements UserService {
     @Override
     @org.springframework.transaction.annotation.Transactional
     public void create(UserRequest rq) {
-        validateCitizenId(rq.citizenId());
         String username = rq.username().trim();
         String email = rq.email().trim().toLowerCase();
         if (userRepository.existsByUsername(username) || userRepository.existsByEmail(email))
@@ -36,30 +34,14 @@ public class UserServiceImpl implements UserService {
         User user = mapToEntity(rq);
         user.setUsername(username);
         user.setEmail(email);
-        String phone = rq.phone() == null || rq.phone().isBlank() ? null : normalizePhone(rq.phone());
-        var personByPhone = phone == null ? Optional.<Person>empty()
-                : personRepository.findByPhoneNumber(phone);
-        var personByCitizenId = personRepository.findByCitizenId(rq.citizenId());
-        if (personByPhone.isPresent() && personByCitizenId.isPresent()
-                && !personByPhone.get().getId().equals(personByCitizenId.get().getId())) {
-            throw new IllegalArgumentException("Số điện thoại và CCCD thuộc về hai hồ sơ khác nhau.");
-        }
-
-        var existingPerson = personByPhone.or(() -> personByCitizenId);
-        if (existingPerson.isPresent()) {
-            var person = existingPerson.get();
-            if (userRepository.existsByPerson_Id(person.getId()))
-                throw new IllegalArgumentException("Hồ sơ này đã có tài khoản.");
-            if (phone != null && person.getPhoneNumber() != null
-                    && !normalizePhone(person.getPhoneNumber()).equals(phone))
-                throw new IllegalArgumentException("Số điện thoại không khớp với hồ sơ đã có.");
-            if (person.getCitizenId() != null && !person.getCitizenId().equals(rq.citizenId()))
-                throw new IllegalArgumentException("CCCD không khớp với hồ sơ đã có.");
-            if (phone != null && person.getPhoneNumber() == null) person.setPhoneNumber(phone);
-            person.setCitizenId(rq.citizenId());
-            user.setPerson(person);
-        } else if (phone != null) {
-            user.getPerson().setPhoneNumber(phone);
+        if (rq.phone() != null && !rq.phone().isBlank()) {
+            String phone = normalizePhone(rq.phone());
+            var existingPerson = personRepository.findByPhoneNumber(phone);
+            if (existingPerson.isPresent()) {
+                if (userRepository.existsByPerson_Id(existingPerson.get().getId()))
+                    throw new IllegalArgumentException("Số điện thoại này đã có tài khoản.");
+                user.setPerson(existingPerson.get());
+            }
         }
         user.setPassword(passwordEncoder.encode(rq.password()));
         if (rq.role() != null) {
@@ -79,11 +61,6 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("User not exits!");
         }
         User userUpdate = user.get();
-        personRepository.findByCitizenId(rq.citizenId())
-                .filter(person -> !person.getId().equals(userUpdate.getPerson().getId()))
-                .ifPresent(person -> {
-                    throw new IllegalArgumentException("CCCD đã được sử dụng bởi một hồ sơ khác.");
-                });
         String email = rq.email().trim().toLowerCase();
         userRepository.findByEmail(email).filter(other -> !other.getId().equals(id)).ifPresent(other -> {
             throw new IllegalArgumentException("Email đã được đăng ký.");
